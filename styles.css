@@ -368,3 +368,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 .cal-sum em.pace small { font-size: 10px; font-weight: 600; }
 .cal-sum div { min-width: 0; overflow: hidden; }
 @media (max-width: 700px) { .cal-sum em.pace { flex-direction: row; gap: 4px; align-items: baseline; } }
+
+/* iPhone (iOS 26): il sistema sfoca i contenuti sotto la barra di stato.
+   Quando la barra date è attaccata in alto la spostiamo più in basso, fuori dalla sfocatura. */
+.range-bar.stuck { padding-top: calc(env(safe-area-inset-top) + 26px); }

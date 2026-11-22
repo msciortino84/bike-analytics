@@ -602,10 +602,11 @@ async function render() {
         { label: 'Fitness', data: pR.map(d => d.ctl), borderColor: '#2f6fde', backgroundColor: '#2f6fde22', fill: true, pointRadius: 0, tension: .3 },
         { label: 'Fatica', data: pR.map(d => d.atl), borderColor: '#c2185b', pointRadius: 0, tension: .3, borderWidth: 1.5 },
         { label: 'Forma', data: pR.map(d => d.tsb), borderColor: '#d98a00', pointRadius: 0, tension: .3, borderWidth: 1.5 },
-        { label: 'TSS', type: 'bar', data: pR.map(d => d.load), backgroundColor: '#8891a055', yAxisID: 'y2' },
       ],
     },
-    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false } } } },
+    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } } },
+      // Il TSS del giorno resta solo nel fumetto
+      plugins: { tooltip: { callbacks: { footer: t => `TSS del giorno: ${Math.round(pR[t[0].dataIndex]?.load || 0)}` } } } },
   });
 
   // Settimanale: tutte le settimane del periodo
