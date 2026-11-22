@@ -185,11 +185,33 @@ drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); importFiles([...e.dataTransfer.files]); };
 
+// ---------- Tema chiaro / scuro / automatico ----------
+function applyTheme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  const dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#111418' : '#f4f5f7');
+}
+const savedTheme = (() => { try { return localStorage.getItem('theme') || 'auto'; } catch { return 'auto'; } })();
+applyTheme(savedTheme);
+document.querySelectorAll('input[name=theme]').forEach(r => {
+  r.checked = r.value === savedTheme;
+  r.onchange = () => {
+    try { localStorage.setItem('theme', r.value); } catch {}
+    applyTheme(r.value);
+    render(); // i grafici prendono i colori del tema al momento del disegno
+  };
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+  applyTheme((() => { try { return localStorage.getItem('theme') || 'auto'; } catch { return 'auto'; } })());
+  render();
+});
+
 // ---------- Schede attività ----------
 const ZONE_COLORS = ['#8891a0', '#2f6fde', '#1f9d55', '#d98a00', '#e0662b', '#d64545', '#7b3fbf'];
 const cleanName = n => String(n || '').replace(/^(MyWhoosh\s*-\s*)?\d{4}-\d{2}-\d{2}\s*-?\s*/, (m, p) => (p ? 'MyWhoosh · ' : ''));
 
-function activityCards(list, all) {
+function activityCards(list, all, R) {
   // Media delle 20 uscite precedenti: base per le frecce ▲▼
   const asc = [...all].sort((a, b) => a.date - b.date);
   const base = new Map();
@@ -206,14 +228,16 @@ function activityCards(list, all) {
     const top = pool.filter(a => a[key] > 0).reduce((m, a) => (!m || a[key] > m[key] ? a : m), null);
     if (top) (badges.get(top.id) || badges.set(top.id, []).get(top.id)).push(text);
   };
-  const year = new Date().getFullYear();
-  const thisYear = all.filter(a => new Date(a.date).getFullYear() === year);
-  const last90 = all.filter(a => a.date > Date.now() - 90 * 864e5);
-  award(thisYear, 'distance', `📏 Più lunga del ${year}`);
-  award(thisYear, 'ascent', `⛰️ Più dislivello del ${year}`);
-  award(thisYear, 'movingTime', `⏱️ Più ore del ${year}`);
-  award(last90, 'tss', '🔥 Carico più alto (90 gg)');
-  award(last90, 'np', '⚡ NP più alta (90 gg)');
+  // I record seguono il periodo scelto nella dashboard (Dal/Al)
+  const pool = all.filter(a => a.date >= R.from && a.date < R.to + 864e5);
+  const per = { '4w': '4 sett', '3m': '3 mesi', '6m': '6 mesi', '1y': '12 mesi', ytd: String(new Date().getFullYear()), all: 'di sempre' }[range.preset] || 'periodo';
+  if (pool.length > 1) {
+    award(pool, 'distance', `📏 Più lunga · ${per}`);
+    award(pool, 'ascent', `⛰️ Più dislivello · ${per}`);
+    award(pool, 'movingTime', `⏱️ Più ore · ${per}`);
+    award(pool, 'tss', `🔥 Carico più alto · ${per}`);
+    award(pool, 'np', `⚡ NP più alta · ${per}`);
+  }
 
   const arrow = (v, b, unit = '') => {
     if (!v || !b) return '';
@@ -529,7 +553,7 @@ async function render() {
   if (acts.length) yearProgress(acts);
 
   // Storico
-  $('actList').innerHTML = acts.length ? activityCards(acts.slice(0, 300), acts) : '<p class="hint">Nessuna attività. Sincronizza da intervals.icu o carica un file.</p>';
+  $('actList').innerHTML = acts.length ? activityCards(acts.slice(0, 300), acts, R) : '<p class="hint">Nessuna attività. Sincronizza da intervals.icu o carica un file.</p>';
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = async e => {
     e.stopPropagation();
     if (confirm('Eliminare questa attività dallo storico locale?')) { await delAct(b.dataset.del); render(); }
@@ -549,8 +573,20 @@ function drawCalendar(acts, events) {
     else calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + step, 1);
     drawCalendar(acts, events);
   });
-  $('calView').querySelectorAll('[data-ev]').forEach(b => b.onclick = () =>
-    renderEventDetail($('calDetail'), events.find(e => String(e.id) === b.dataset.ev)));
+  $('calView').querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
+    const ev = events.find(e => String(e.id) === b.dataset.ev);
+    if (!matchMedia('(max-width: 700px)').matches) return renderEventDetail($('calDetail'), ev);
+    // Telefono: il dettaglio si apre sul posto, sotto l'allenamento toccato; ritoccando si chiude
+    const open = b.nextElementSibling?.classList.contains('cal-inline');
+    $('calView').querySelectorAll('.cal-inline').forEach(x => x.remove());
+    $('calView').querySelectorAll('.cal-ev.sel').forEach(x => x.classList.remove('sel'));
+    if (open) return;
+    const box = document.createElement('div');
+    box.className = 'cal-inline';
+    b.after(box);
+    b.classList.add('sel');
+    renderEventDetail(box, ev);
+  });
   $('calView').querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDetail(acts.find(a => a.id === b.dataset.open)));
 }
 // ---------- Dettaglio uscita ----------
@@ -571,7 +607,8 @@ $('backBtn').onclick = () => { showTab(backTo.tab); window.scrollTo(0, backTo.sc
 
 // Mappa Leaflet con il percorso colorato per intensità, partenza/arrivo e momenti chiave.
 let map = null;
-function drawMap(s, keys) {
+function drawMap(s, keys, startTime) {
+  mapScrub = () => {};
   const card = $('dMapCard');
   const pts = [];
   const lat = s.lat || [], lng = s.lng || [];
@@ -600,7 +637,28 @@ function drawMap(s, keys) {
   }
   map.fitBounds(L.latLngBounds(line), { padding: [20, 20] });
   setTimeout(() => map && map.invalidateSize(), 50);
+
+  // Pallino che segue il cursore sul grafico potenza/battito
+  const runner = L.circleMarker(pts[0], { radius: 8, color: '#fff', weight: 3, fillColor: '#2bb5c4', fillOpacity: 1, interactive: false });
+  runner.bindTooltip('', { permanent: true, direction: 'top', offset: [0, -10], className: 'run-tip' });
+  const times = s.time;
+  mapScrub = sec => {
+    if (!map) return;
+    if (sec == null) { runner.remove(); return; }
+    // ricerca binaria del campione più vicino a quel secondo
+    let lo = 0, hi = times.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (times[mid] < sec) lo = mid + 1; else hi = mid; }
+    let j = lo;
+    for (let d = 0; d < 30 && !(lat[j] && lng[j]); d++) j = lo + (d % 2 ? -(d >> 1) - 1 : (d >> 1) + 1);
+    if (!(lat[j] && lng[j])) return;
+    const clock = new Date(startTime + times[lo] * 1000).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    const km = s.dist?.[lo] != null ? ` · ${(s.dist[lo] / 1000).toFixed(1)} km` : '';
+    runner.setLatLng([lat[j], lng[j]]);
+    runner.setTooltipContent(`<b>${clock}</b> · ${fmtDur(times[lo])} dalla partenza${km}`);
+    if (!map.hasLayer(runner)) runner.addTo(map).openTooltip();
+  };
 }
+let mapScrub = () => {};
 
 // Riporta uno stream a 1 valore al secondo.
 function resample(time, values) {
@@ -766,6 +824,12 @@ async function openDetail(a) {
     ] },
     options: {
       layout: { padding: { top: 8 } },
+      // Scorrendo sul grafico (mouse o dito) il pallino si muove sulla mappa
+      onHover: (e, _els, c) => {
+        if (e.type === 'mouseout') return mapScrub(null);
+        const i = Math.round(c.scales.x.getValueForPixel(e.x));
+        if (i >= 0 && i < N) mapScrub(i * step);
+      },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { labels: { filter: l => l.text !== 'Tratti migliori' } },
@@ -813,7 +877,7 @@ async function openDetail(a) {
       <div><b>${k.title}</b> · ${k.value}<div class="s">a ${fmtDur(k.sec)}</div></div></div>`).join('') : '';
 
   // Mappa del percorso
-  drawMap(s, keys);
+  drawMap(s, keys, a.date);
 
   // Migliori sforzi, con confronto ai record degli ultimi 90 giorni
   const lbl = d => (d < 60 ? `${d}s` : `${d / 60}'`);

@@ -12,6 +12,10 @@
   <meta name="apple-mobile-web-app-title" content="Bike Analytics">
   <title>Bike Analytics</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Applica subito il tema scelto, prima che la pagina venga disegnata (niente lampo bianco)
+    try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -98,6 +102,15 @@
         <label>Proxy (opzionale) <input id="proxyUrl" autocomplete="off" placeholder="https://...workers.dev/api/v1"></label>
         <button id="saveSettings" type="submit" class="primary">Accedi e sincronizza</button>
       </form>
+      <div class="card">
+        <h2>Aspetto</h2>
+        <div class="seg" role="radiogroup" aria-label="Tema">
+          <label><input type="radio" name="theme" value="auto">Automatico</label>
+          <label><input type="radio" name="theme" value="light">Chiaro</label>
+          <label><input type="radio" name="theme" value="dark">Scuro</label>
+        </div>
+        <p class="hint" style="margin-top:8px">Automatico segue l'impostazione del telefono o del computer.</p>
+      </div>
       <div class="card">
         <h2>Soglie</h2>
         <p class="hint">Si aggiornano da intervals a ogni sincronizzazione. Servono per i file FIT caricati a mano.</p>
