@@ -88,6 +88,7 @@ export const blocksDuration = blocks => blocks.reduce((s, b) => s + b.secs, 0);
 
 // ---------- Vista mensile ----------
 const fmtDur = s => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}'`; };
+const clean = n => String(n ?? '').replace(/^d{4}-d{2}-d{2}s*-?s*/, '');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const DOW = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
@@ -124,16 +125,16 @@ export function renderCalendar(el, { month, acts, events }) {
           const secs = e.duration || blocksDuration(blocks);
           pTss += e.load || 0; pTime += secs || 0;
           html += `<div class="cal-ev ${isRace ? 'race' : 'plan'}" data-ev="${esc(e.id)}">
-            <div class="cal-ev-t">${isRace ? '🏁 ' : ''}${esc(e.name)}</div>
+            <div class="cal-ev-t">${isRace ? '🏁 ' : ''}${esc(clean(e.name))}</div>
             ${blocks.length ? workoutSvg(blocks) : ''}
             <div class="cal-ev-s">${secs ? fmtDur(secs) : ''}${e.load ? ` · ${e.load} TSS` : ''}</div></div>`;
         } else if (e.category === 'NOTE') {
-          html += `<div class="cal-ev note" data-ev="${esc(e.id)}">📝 ${esc(e.name)}</div>`;
+          html += `<div class="cal-ev note" data-ev="${esc(e.id)}">📝 ${esc(clean(e.name))}</div>`;
         }
       }
       for (const a of dayActs) {
         html += `<div class="cal-act" data-open="${esc(a.id)}">
-          <div class="cal-ev-t">✓ ${esc(a.name)}</div>
+          <div class="cal-ev-t">✓ ${esc(clean(a.name))}</div>
           <div class="cal-ev-s">${fmtDur(a.movingTime)} · ${(a.distance / 1000).toFixed(0)} km${a.tss ? ` · ${a.tss} TSS` : ''}</div></div>`;
       }
       html += '</div>';
@@ -151,7 +152,7 @@ export function renderEventDetail(el, e, canAdd) {
   const blocks = workoutBlocks(e);
   el.innerHTML = `<div class="card cal-detail">
     <h2>${new Date(e.date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
-    <div class="name">${esc(e.name)}</div>
+    <div class="name">${esc(clean(e.name))}</div>
     ${blocks.length ? workoutSvg(blocks, 60).replace('wo-svg', 'wo-svg big') : ''}
     <div class="hint">${e.duration || blocks.length ? fmtDur(e.duration || blocksDuration(blocks)) : ''}${e.load ? ` · ${e.load} TSS previsti` : ''}</div>
     ${e.description ? `<pre>${esc(e.description)}</pre>` : ''}
