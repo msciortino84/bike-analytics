@@ -29,7 +29,9 @@
   <main>
     <section id="tab-dash" class="tab active">
       <div class="kpis" id="kpis"></div>
+      <div class="card workout" id="workout"></div>
       <div class="card"><h2>Consigli</h2><ul id="advice" class="advice"></ul></div>
+      <div class="card" id="wellCard" hidden><h2>Recupero: HRV e sonno (60 gg)</h2><div class="chart"><canvas id="wellChart"></canvas></div></div>
       <div class="card"><h2>Fitness · Fatica · Forma</h2><div class="chart"><canvas id="pmcChart"></canvas></div></div>
       <div class="grid2">
         <div class="card"><h2>Carico settimanale (TSS)</h2><div class="chart"><canvas id="weekChart"></canvas></div></div>
@@ -50,6 +52,17 @@
         </label>
       </div>
       <div class="card"><h2>Storico</h2><div id="actList"></div></div>
+    </section>
+
+    <section id="tab-detail" class="tab">
+      <button id="backBtn">← Storico</button>
+      <div class="card"><h2 id="dTitle"></h2><div class="kpis" id="dKpis"></div></div>
+      <div class="card"><h2>Potenza e battito</h2><div class="chart tall"><canvas id="dPowerChart"></canvas></div></div>
+      <div class="card"><h2>Altimetria</h2><div class="chart"><canvas id="dAltChart"></canvas></div></div>
+      <div class="grid2">
+        <div class="card"><h2>Migliori sforzi</h2><div id="dBest"></div></div>
+        <div class="card"><h2>Tempo nelle zone</h2><div class="chart"><canvas id="dZoneChart"></canvas></div></div>
+      </div>
     </section>
 
     <section id="tab-cal" class="tab">

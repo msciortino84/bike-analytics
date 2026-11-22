@@ -1,7 +1,7 @@
 import { parseFit } from './fit.js';
-import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay } from './metrics.js';
-import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness } from './intervals.js';
-import { buildAdvice } from './advice.js';
+import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay, bestEfforts, normalizedPower, powerZones } from './metrics.js';
+import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout } from './intervals.js';
+import { buildAdvice, wellnessStatus, suggestWorkout } from './advice.js';
 
 // ---------- Archivio locale (IndexedDB) ----------
 const db = await new Promise((res, rej) => {
@@ -100,7 +100,13 @@ async function importFiles(files) {
       if (/\.fit$/i.test(f.name)) {
         const { records, session } = parseFit(await f.arrayBuffer());
         const a = analyzeRecords(records, session, settings);
-        await putAct({ ...a, id: 'fit-' + a.date, source: 'fit', name: f.name.replace(/\.fit$/i, '') });
+        const t0 = records.find(r => r.t)?.t ?? 0;
+        const rs = records.filter(r => r.t);
+        const streams = {
+          time: rs.map(r => Math.round((r.t - t0) / 1000)), power: rs.map(r => r.power), hr: rs.map(r => r.hr),
+          alt: rs.map(r => r.alt), dist: rs.map(r => r.dist), cad: rs.map(r => r.cad),
+        };
+        await putAct({ ...a, id: 'fit-' + a.date, source: 'fit', name: f.name.replace(/\.fit$/i, ''), streams });
         ok++;
       } else if (/\.json$/i.test(f.name)) {
         const data = JSON.parse(await f.text());
@@ -145,10 +151,45 @@ async function render() {
     const ofDay = new Map(wellness.map(w => [startOfDay(w.date), w]));
     p = p.map(d => {
       const w = ofDay.get(d.date);
-      return w ? { ...d, ctl: w.ctl, atl: w.atl, tsb: w.ctl - w.atl } : d;
+      return w?.ctl != null && w.atl != null ? { ...d, ctl: w.ctl, atl: w.atl, tsb: w.ctl - w.atl } : d;
     });
   }
   const last = p[p.length - 1] || { ctl: 0, atl: 0 };
+  const wstat = wellnessStatus(wellness);
+
+  // Allenamento del giorno
+  const wo = suggestWorkout(p, acts, events, wstat);
+  const plannedToday = events.find(e => e.category === 'WORKOUT' && startOfDay(e.date) === startOfDay(Date.now()));
+  $('workout').innerHTML = `
+    <h2>Allenamento consigliato per oggi</h2>
+    <div class="name">${esc(wo.name)}${wo.minutes ? ` <span class="tag">${wo.minutes}'</span>` : ''}</div>
+    <div>${esc(wo.text)}</div>
+    <div class="hint" style="margin-top:6px">Perché: ${esc(wo.reasons.join(', '))}.</div>
+    ${plannedToday ? `<div class="hint">In calendario oggi hai già: <b>${esc(plannedToday.name)}</b>.</div>` : ''}
+    ${wo.description ? `<pre>${esc(wo.description)}</pre>` : ''}
+    ${wo.description && settings.apiKey ? `<button id="addWo" class="primary">Aggiungi al calendario di oggi su intervals</button>` : ''}`;
+  if ($('addWo')) $('addWo').onclick = async () => {
+    if (!confirm(`Aggiungere "${wo.name}" al tuo calendario intervals.icu di oggi?`)) return;
+    try {
+      await createWorkout(settings, { date: Date.now(), name: wo.name, description: wo.description });
+      status(`"${wo.name}" aggiunto al calendario intervals. Si sincronizza su Garmin come allenamento strutturato.`);
+      $('addWo').disabled = true;
+    } catch (e) { status(e.message); }
+  };
+
+  // Wellness
+  const wl = wellness.filter(w => w.date > Date.now() - 60 * 864e5).sort((a, b) => a.date - b.date);
+  $('wellCard').hidden = !wl.some(w => w.hrv || w.sleepSecs);
+  if (!$('wellCard').hidden) chart('wellChart', {
+    type: 'line',
+    data: { labels: wl.map(w => new Date(w.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [
+      { label: 'HRV (ms)', data: wl.map(w => w.hrv), borderColor: '#1f9d55', spanGaps: true, pointRadius: 0, tension: .3 },
+      { label: 'Media HRV 60 gg', data: wl.map(() => wstat.hrvBase), borderColor: '#1f9d5566', borderDash: [4, 4], pointRadius: 0 },
+      { label: 'Sonno (h)', type: 'bar', data: wl.map(w => w.sleepSecs ? +(w.sleepSecs / 3600).toFixed(1) : null), backgroundColor: '#5b8ff055', yAxisID: 'y2' },
+      { label: 'FC riposo', data: wl.map(w => w.restingHR), borderColor: '#d64545', spanGaps: true, pointRadius: 0, tension: .3, borderWidth: 1.5 },
+    ] },
+    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false }, min: 0, max: 12 } } },
+  });
 
   // KPI
   const weekStart = startOfDay(Date.now()) - ((new Date().getDay() + 6) % 7) * 864e5;
@@ -162,7 +203,7 @@ async function render() {
   ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
 
   // Consigli
-  $('advice').innerHTML = buildAdvice(p, acts, events).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
+  $('advice').innerHTML = buildAdvice(p, acts, events, wstat).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
 
   // PMC
   chart('pmcChart', {
@@ -238,14 +279,18 @@ async function render() {
 
   // Storico
   $('actList').innerHTML = acts.length ? acts.slice(0, 300).map(a => `
-    <div class="row">
+    <div class="row click" data-open="${a.id}">
       <div><div class="t">${esc(a.name)}<span class="tag">${a.source}</span></div>
         <div class="s">${fmtDate(a.date)} · ${fmtDur(a.movingTime)} · ${(a.distance / 1000).toFixed(1)} km · ${Math.round(a.ascent || 0)} m</div></div>
       <div class="r"><div>${a.tss != null ? a.tss + ' TSS' : ''}</div>
         <div class="s">${a.np ? 'NP ' + a.np + ' W' : a.avgPower ? a.avgPower + ' W' : ''}${a.avgHr ? ' · ' + a.avgHr + ' bpm' : ''}${a.ifactor ? ' · IF ' + a.ifactor : ''}</div>
         <button data-del="${a.id}">Elimina</button></div>
     </div>`).join('') : '<p class="hint">Nessuna attività. Sincronizza da intervals.icu o carica un file.</p>';
-  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await delAct(b.dataset.del); render(); });
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    if (confirm('Eliminare questa attività dallo storico locale?')) { await delAct(b.dataset.del); render(); }
+  });
+  document.querySelectorAll('[data-open]').forEach(r => r.onclick = () => openDetail(acts.find(a => a.id === r.dataset.open)));
 
   // Calendario
   const up = events.filter(e => e.date >= startOfDay(Date.now())).sort((a, b) => a.date - b.date);
@@ -255,6 +300,121 @@ async function render() {
       <div class="r">${e.load ? e.load + ' TSS' : ''}<div class="s">${e.duration ? fmtDur(e.duration) : ''}</div></div></div>`).join('')
     : '<p class="hint">Nessun evento pianificato (o non ancora sincronizzato).</p>';
 }
+// ---------- Dettaglio uscita ----------
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
+  window.scrollTo(0, 0);
+}
+$('backBtn').onclick = () => showTab('acts');
+
+// Riporta uno stream a 1 valore al secondo.
+function resample(time, values) {
+  if (!time.length) return [];
+  const out = new Array(time[time.length - 1] + 1).fill(0);
+  let j = 0;
+  for (let t = 0; t < out.length; t++) {
+    while (j + 1 < time.length && time[j + 1] <= t) j++;
+    out[t] = t - time[j] > 5 ? 0 : values[j] ?? 0;
+  }
+  return out;
+}
+// Riduce a ~n punti facendo la media, per grafici leggeri anche su telefono.
+function downsample(arr, n = 600) {
+  if (arr.length <= n) return arr;
+  const step = arr.length / n, out = [];
+  for (let i = 0; i < n; i++) {
+    const s = Math.floor(i * step), e = Math.floor((i + 1) * step);
+    let sum = 0, c = 0;
+    for (let k = s; k < e; k++) if (arr[k] != null) { sum += arr[k]; c++; }
+    out.push(c ? sum / c : null);
+  }
+  return out;
+}
+
+async function openDetail(a) {
+  if (!a) return;
+  showTab('detail');
+  $('dTitle').textContent = `${a.name} · ${fmtDate(a.date)}`;
+  $('dBest').innerHTML = '<p class="hint">Caricamento…</p>';
+  let s = a.streams;
+  if (!s && a.source === 'intervals') {
+    try {
+      s = await fetchStreams(settings, a.id);
+      await putAct({ ...a, streams: s }); // salvato: la prossima volta si apre subito, anche offline
+    } catch (e) { $('dBest').innerHTML = `<p class="hint">Impossibile scaricare i dati: ${esc(e.message)}</p>`; return; }
+  }
+  if (!s || !s.time?.length) { $('dBest').innerHTML = '<p class="hint">Nessun dato secondo per secondo per questa attività.</p>'; return; }
+
+  const power = resample(s.time, s.power || []);
+  const hasPower = power.some(x => x > 0);
+  const np = hasPower ? Math.round(normalizedPower(power)) : a.np;
+  const hrs = (s.hr || []).filter(Boolean);
+  const cads = (s.cad || []).filter(Boolean);
+  const maxHr = hrs.length ? Math.max(...hrs) : null;
+  const maxP = hasPower ? Math.max(...power) : null;
+  const kj = hasPower ? Math.round(power.reduce((x, y) => x + y, 0) / 1000) : null;
+  const vi = hasPower && a.avgPower ? (np / a.avgPower).toFixed(2) : null;
+  const speed = a.movingTime ? (a.distance / a.movingTime) * 3.6 : 0;
+  $('dKpis').innerHTML = [
+    ['Durata', fmtDur(a.movingTime)], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`], ['Dislivello', `${Math.round(a.ascent || 0)} m`],
+    ['Velocità media', `${speed.toFixed(1)} km/h`], ['TSS', a.tss ?? '–'], ['IF', a.ifactor ?? '–'],
+    ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–'], ['NP', np ? `${np} W` : '–'], ['Potenza max', maxP ? `${maxP} W` : '–'],
+    ['Lavoro', kj ? `${kj} kJ` : '–'], ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–'],
+    ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–'],
+    ...(vi ? [['Variabilità (VI)', vi]] : []),
+  ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+
+  // Grafico potenza + battito nel tempo
+  const N = 600;
+  const pw = downsample(power, N);
+  const hr = downsample(resample(s.time, s.hr || []).map(x => x || null), N);
+  const step = power.length / pw.length;
+  const labels = pw.map((_, i) => fmtDur(i * step));
+  chart('dPowerChart', {
+    type: 'line',
+    data: { labels, datasets: [
+      ...(hasPower ? [{ label: 'Potenza (W)', data: pw.map(x => x && Math.round(x)), borderColor: '#c2185b', backgroundColor: '#c2185b18', fill: true, pointRadius: 0, borderWidth: 1 }] : []),
+      { label: 'Battito (bpm)', data: hr.map(x => x && Math.round(x)), borderColor: '#d64545', pointRadius: 0, borderWidth: 1.5, yAxisID: 'y2' },
+      ...(hasPower && settings.ftp ? [{ label: 'FTP', data: pw.map(() => settings.ftp), borderColor: '#8891a0', borderDash: [5, 5], pointRadius: 0, borderWidth: 1 }] : []),
+    ] },
+    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false } } } },
+  });
+
+  // Altimetria sulla distanza
+  const pts = s.time.map((_, i) => ({ d: s.dist?.[i], h: s.alt?.[i] })).filter(p => p.d != null && p.h != null);
+  const every = Math.max(1, Math.floor(pts.length / N));
+  const alt = pts.filter((_, i) => i % every === 0);
+  chart('dAltChart', {
+    type: 'line',
+    data: { labels: alt.map(p => (p.d / 1000).toFixed(1) + ' km'), datasets: [{ label: 'Altitudine (m)', data: alt.map(p => Math.round(p.h)), borderColor: '#1f9d55', backgroundColor: '#1f9d5533', fill: true, pointRadius: 0, borderWidth: 1.5 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } },
+  });
+
+  // Migliori sforzi, con confronto ai record degli ultimi 90 giorni
+  const lbl = d => (d < 60 ? `${d}s` : `${d / 60}'`);
+  if (hasPower) {
+    const be = bestEfforts(power);
+    const icuCurve = (await kvGet('curve')) || {};
+    $('dBest').innerHTML = '<div class="best">' + Object.entries(be).map(([d, w]) => {
+      const rec = icuCurve[d];
+      const pct = rec ? Math.round((w / rec) * 100) : null;
+      const wkg = settings.weight ? ` · ${(w / settings.weight).toFixed(1)} W/kg` : '';
+      return `<div><span>${lbl(+d)}</span><b>${w} W</b><span>${wkg.slice(3)}${pct ? `<br>${pct >= 100 ? '🏆 record 90 gg' : pct + '% del record'}` : ''}</span></div>`;
+    }).join('') + '</div>';
+    const z = powerZones(power, settings.ftp);
+    chart('dZoneChart', {
+      type: 'bar',
+      data: { labels: POWER_ZONES.map(x => x.name), datasets: [{ label: 'Minuti', data: z.map(x => Math.round(x / 60)),
+        backgroundColor: ['#8891a0', '#2f6fde', '#1f9d55', '#d98a00', '#e0662b', '#d64545', '#7b3fbf'] }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } } },
+    });
+  } else {
+    $('dBest').innerHTML = '<p class="hint">Nessun dato di potenza.</p>';
+    charts.dZoneChart?.destroy();
+  }
+}
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 fillSettings();

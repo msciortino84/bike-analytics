@@ -4,12 +4,15 @@ const BASE = 'https://intervals.icu/api/v1';
 
 function iso(d) { return new Date(d).toISOString().slice(0, 10); }
 
-async function call(settings, path) {
+function call(settings, path, opts) {
+  return callRaw(settings, `/athlete/${settings.athleteId || '0'}${path}`, opts);
+}
+
+async function callRaw(settings, path, { method = 'GET', body } = {}) {
   const base = settings.proxyUrl ? settings.proxyUrl.replace(/\/$/, '') : BASE;
-  const athlete = settings.athleteId || '0';
-  const res = await fetch(`${base}/athlete/${athlete}${path}`, {
-    headers: { Authorization: 'Basic ' + btoa('API_KEY:' + settings.apiKey) },
-  });
+  const headers = { Authorization: 'Basic ' + btoa('API_KEY:' + settings.apiKey) };
+  if (body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(`${base}${path}`, { method, headers, body: body && JSON.stringify(body) });
   if (res.status === 401 || res.status === 403) throw new Error('Chiave API o ID atleta non validi');
   if (!res.ok) throw new Error(`intervals.icu: errore ${res.status}`);
   return res.json();
@@ -59,8 +62,26 @@ export async function fetchEvents(settings, daysBack = 7, daysAhead = 28) {
 export async function fetchWellness(settings, days = 180) {
   const list = await call(settings, `/wellness?oldest=${iso(Date.now() - days * 864e5)}&newest=${iso(Date.now())}`);
   return list
-    .filter(w => w.ctl != null && w.atl != null)
-    .map(w => ({ date: new Date(w.id + 'T00:00:00').getTime(), ctl: w.ctl, atl: w.atl }));
+    .map(w => ({
+      date: new Date(w.id + 'T00:00:00').getTime(), ctl: w.ctl ?? null, atl: w.atl ?? null,
+      hrv: w.hrv ?? null, restingHR: w.restingHR ?? null, weight: w.weight ?? null,
+      sleepSecs: w.sleepSecs ?? null, sleepScore: w.sleepScore ?? null,
+    }));
+}
+
+// Stream secondo per secondo di una singola attività.
+export async function fetchStreams(settings, activityId) {
+  const id = String(activityId).replace(/^icu-/, '');
+  const list = await callRaw(settings, `/activity/${id}/streams?types=time,watts,heartrate,altitude,distance,cadence`);
+  const get = t => list.find(s => s.type === t)?.data || [];
+  return { time: get('time'), power: get('watts'), hr: get('heartrate'), alt: get('altitude'), dist: get('distance'), cad: get('cadence') };
+}
+
+// Crea un allenamento pianificato nel calendario di intervals.
+export async function createWorkout(settings, { date, name, description }) {
+  const d = new Date(date);
+  const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00`;
+  return call(settings, '/events', { method: 'POST', body: { category: 'WORKOUT', type: 'Ride', start_date_local: local, name, description } });
 }
 
 export async function fetchPowerCurve(settings, curve = '90d') {

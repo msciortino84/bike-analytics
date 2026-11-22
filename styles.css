@@ -44,4 +44,14 @@ input { display: block; width: 100%; margin-top: 4px; padding: 9px; font: inheri
 .row .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .row button { padding: 2px 8px; font-size: 12px; }
 #status { padding: 0 16px; font-size: 13px; color: var(--muted); min-height: 18px; }
+.chart.tall { height: 300px; }
+.row.click { cursor: pointer; }
+.row.click:hover .t { color: var(--accent); }
+.workout { border-left: 4px solid var(--accent); }
+.workout .name { font-size: 20px; font-weight: 700; margin: 2px 0 4px; }
+.workout pre { white-space: pre-wrap; font-size: 13px; background: var(--bg); padding: 8px; border-radius: 8px; margin: 8px 0 0; }
+.best { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+.best div { background: var(--bg); border-radius: 8px; padding: 8px; text-align: center; }
+.best b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.best span { font-size: 12px; color: var(--muted); }
 .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); margin-left: 6px; }
