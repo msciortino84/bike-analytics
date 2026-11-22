@@ -24,8 +24,19 @@ const kvSet = (k, v) => req(tx('kv', 'readwrite').put(v, k));
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem('settings')) || {}; } catch { return {}; }
 }
-function saveSettings(s) { try { localStorage.setItem('settings', JSON.stringify(s)); } catch {} }
+// Le impostazioni vengono salvate in due posti (localStorage e IndexedDB):
+// se il browser ne svuota uno, si recuperano dall'altro.
+function saveSettings(s) {
+  try { localStorage.setItem('settings', JSON.stringify(s)); } catch {}
+  kvSet('settings', s).catch(() => {});
+}
 let settings = loadSettings();
+if (!settings.apiKey) {
+  const saved = await kvGet('settings').catch(() => null);
+  if (saved?.apiKey) { settings = { ...saved, ...settings, apiKey: saved.apiKey, athleteId: settings.athleteId || saved.athleteId }; saveSettings(settings); }
+}
+// Chiede al browser di non cancellare i dati dell'app quando serve spazio.
+navigator.storage?.persist?.().catch(() => {});
 
 // ---------- Utility ----------
 const $ = id => document.getElementById(id);
@@ -55,6 +66,8 @@ $('saveSettings').onclick = () => {
   settings = { ...settings, athleteId: $('athleteId').value.trim(), apiKey: $('apiKey').value.trim(), proxyUrl: $('proxyUrl').value.trim() };
   saveSettings(settings); status('Impostazioni salvate.');
 };
+// Salvataggio automatico appena scrivi, anche senza premere "Salva".
+for (const k of ['athleteId', 'apiKey', 'proxyUrl']) $(k).addEventListener('change', () => $('saveSettings').click());
 $('saveThresholds').onclick = () => {
   settings = { ...settings, ftp: +$('ftp').value || null, lthr: +$('lthr').value || null, weight: +$('weight').value || null };
   saveSettings(settings); status('Soglie salvate.'); render();
