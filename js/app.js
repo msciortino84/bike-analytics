@@ -400,7 +400,7 @@ async function openDetail(a) {
     // Ordinati per categoria: percorso, carico, potenza, battito, cadenza
     ['Durata', fmtDur(a.movingTime), 'time'], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time'],
     ['Dislivello', `${Math.round(a.ascent || 0)} m`, 'time'], ['Velocità media', `${speed.toFixed(1)} km/h`, 'time'],
-    ['TSS', a.tss ?? '–', 'load'], ['IF', a.ifactor ?? '–', 'load'], ['Lavoro', kj ? `${kj} kJ` : '–', 'load'],
+    ['TSS', a.tss ?? '–', 'load'], ['IF', a.ifactor ?? '–', 'load'],
     ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–', 'power'], ['NP', np ? `${np} W` : '–', 'power'],
     ['Potenza max', maxP ? `${maxP} W` : '–', 'power'], ...(vi ? [['Variabilità (VI)', vi, 'power']] : []),
     ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–', 'hr'],

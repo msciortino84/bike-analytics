@@ -88,7 +88,7 @@ export const blocksDuration = blocks => blocks.reduce((s, b) => s + b.secs, 0);
 
 // ---------- Vista mensile ----------
 const fmtDur = s => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}'`; };
-const clean = n => String(n ?? '').replace(/^d{4}-d{2}-d{2}s*-?s*/, '');
+const clean = n => String(n ?? '').replace(/^\d{4}-\d{2}-\d{2}\s*-?\s*/, '');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const DOW = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
