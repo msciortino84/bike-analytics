@@ -341,12 +341,20 @@ function drawCalendar(acts, events) {
   $('calView').querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDetail(acts.find(a => a.id === b.dataset.open)));
 }
 // ---------- Dettaglio uscita ----------
+// Il dettaglio ricorda da dove è stato aperto (attività, calendario o dashboard) e la posizione di scorrimento.
+const TAB_NAMES = { acts: 'Storico', cal: 'Calendario', dash: 'Dashboard' };
+let backTo = { tab: 'acts', scroll: 0 };
 function showTab(name) {
+  if (name === 'detail') {
+    const cur = document.querySelector('.tab.active')?.id.replace('tab-', '');
+    if (cur && cur !== 'detail') backTo = { tab: cur, scroll: window.scrollY };
+    $('backBtn').textContent = '← ' + (TAB_NAMES[backTo.tab] || 'Indietro');
+  }
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
   window.scrollTo(0, 0);
 }
-$('backBtn').onclick = () => showTab('acts');
+$('backBtn').onclick = () => { showTab(backTo.tab); window.scrollTo(0, backTo.scroll); };
 
 // Riporta uno stream a 1 valore al secondo.
 function resample(time, values) {
