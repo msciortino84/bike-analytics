@@ -110,7 +110,8 @@ async function sync({ auto = false } = {}) {
     status(auto ? 'Aggiornamento automatico da intervals…' : 'Sincronizzazione in corso…');
     curveCache.clear();
     const ath = await fetchAthlete(settings);
-    settings = { ...settings, ftp: ath.ftp || settings.ftp, lthr: ath.lthr || settings.lthr, weight: ath.weight || settings.weight };
+    settings = { ...settings, ftp: ath.ftp || settings.ftp, lthr: ath.lthr || settings.lthr, weight: ath.weight || settings.weight,
+      hrZoneNames: ath.hrZoneNames || settings.hrZoneNames, hrZones: ath.hrZones || settings.hrZones };
     saveSettings(settings); fillSettings();
     const [acts, events, curve] = await Promise.all([fetchActivities(settings, 1100), fetchEvents(settings), fetchPowerCurve(settings)]);
     // Mantiene gli stream già scaricati per il dettaglio, così non vanno riscaricati.
@@ -209,6 +210,12 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
   render();
 });
 
+// Ordine del calendario (Impostazioni)
+document.querySelectorAll('input[name=calOrder]').forEach(r => {
+  r.checked = r.value === (settings.calOrder || 'asc');
+  r.onchange = () => { settings = { ...settings, calOrder: r.value }; saveSettings(settings); render(); };
+});
+
 // ---------- Schede attività ----------
 const ZONE_COLORS = ['#8891a0', '#2f6fde', '#1f9d55', '#d98a00', '#e0662b', '#d64545', '#7b3fbf'];
 const cleanName = n => String(n || '').replace(/^(MyWhoosh\s*-\s*)?\d{4}-\d{2}-\d{2}\s*-?\s*/, (m, p) => (p ? 'MyWhoosh · ' : ''));
@@ -234,11 +241,11 @@ function activityCards(list, all, R) {
   const pool = all.filter(a => a.date >= R.from && a.date < R.to + 864e5);
   const per = { '4w': '4 sett', '3m': '3 mesi', '6m': '6 mesi', '1y': '12 mesi', ytd: String(new Date().getFullYear()), all: 'di sempre' }[range.preset] || 'periodo';
   if (pool.length > 1) {
-    award(pool, 'distance', `📏 Più lunga · ${per}`);
-    award(pool, 'ascent', `⛰️ Più dislivello · ${per}`);
-    award(pool, 'movingTime', `⏱️ Più ore · ${per}`);
-    award(pool, 'tss', `🔥 Carico più alto · ${per}`);
-    award(pool, 'np', `⚡ NP più alta · ${per}`);
+    award(pool, 'distance', ['📏', 'km', `Uscita più lunga · ${per}`]);
+    award(pool, 'ascent', ['⛰️', 'D+', `Più dislivello · ${per}`]);
+    award(pool, 'movingTime', ['⏱️', 'ore', `Più tempo in sella · ${per}`]);
+    award(pool, 'tss', ['🔥', 'TSS', `Carico più alto · ${per}`]);
+    award(pool, 'np', ['⚡', 'NP', `NP più alta · ${per}`]);
   }
 
   const arrow = (v, b, unit = '') => {
@@ -270,7 +277,7 @@ function activityCards(list, all, R) {
       <div class="ac-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>
       <div class="ac-body">
         <div class="ac-title">${esc(cleanName(a.name))}<button class="ac-del" data-del="${a.id}" title="Elimina dallo storico locale" aria-label="Elimina">✕</button></div>
-        ${bd.length ? `<div class="ac-badges">${bd.map(t => `<span>${t}</span>`).join('')}</div>` : ''}
+        ${bd.length ? `<div class="ac-badges">${bd.map(([ic, w, t]) => `<span title="🏆 ${t}">${ic} ${w}</span>`).join('')}</div>` : ''}
         <div class="ac-metrics">
           ${metric('durata', fmtDur(a.movingTime), 'movingTime', 'c-time')}
           ${metric('km', (a.distance / 1000).toFixed(1), 'distance', 'c-time')}
@@ -284,6 +291,89 @@ function activityCards(list, all, R) {
     </div>`;
   }
   return html + '</div>';
+}
+
+// ---------- Grafici a disco ----------
+const RADAR_SECS = [15, 30, 60, 120, 180, 300, 600, 900, 1200, 1800, 2700, 3600];
+const RADAR_GROUPS = [ // archi colorati esterni, come i "livelli di potenza"
+  { from: 0, to: 2, color: '#1f6fd6', name: 'Sprint' },
+  { from: 3, to: 6, color: '#4ea52a', name: 'VO2max' },
+  { from: 7, to: 11, color: '#f07a2d', name: 'Soglia' },
+];
+const secLbl = s => (s < 60 ? `${s}s` : `${s / 60} m`);
+const radarArcs = {
+  id: 'radarArcs',
+  afterDraw(c) {
+    const sc = c.scales.r, n = c.data.labels.length;
+    if (!sc || !c.options.plugins.radarArcs?.groups) return;
+    const { ctx } = c, step = (Math.PI * 2) / n, r = sc.drawingArea + 14;
+    for (const g of c.options.plugins.radarArcs.groups) {
+      const a0 = sc.getIndexAngle(g.from) - Math.PI / 2 - step / 2 + 0.02;
+      const a1 = sc.getIndexAngle(g.to) - Math.PI / 2 + step / 2 - 0.02;
+      ctx.save(); ctx.beginPath(); ctx.arc(sc.xCenter, sc.yCenter, r, a0, a1);
+      ctx.strokeStyle = g.color; ctx.lineWidth = 12; ctx.lineCap = 'butt'; ctx.stroke(); ctx.restore();
+    }
+  },
+};
+
+async function drawRadars(R, ra, acts) {
+  // Potenza: periodo vs di sempre, ogni asse in % del tuo record assoluto per quella durata
+  let allC = null, perC = null;
+  if (settings.apiKey) {
+    if (!curveCache.has('all')) curveCache.set('all', fetchPowerCurve(settings, 'all').catch(() => ({})));
+    [allC, perC] = await Promise.all([curveCache.get('all'), curveForRange(R)]);
+  }
+  const best = (c, s) => (c?.[s] || 0);
+  const allV = RADAR_SECS.map(s => Math.max(best(allC, s), ...acts.map(a => a.curve?.[s] || 0)));
+  const perV = RADAR_SECS.map(s => Math.max(best(perC, s), ...ra.map(a => a.curve?.[s] || 0)));
+  const pct = (v, i) => (allV[i] ? Math.round(v / allV[i] * 100) : 0);
+  chart('radarPower', {
+    type: 'radar',
+    data: { labels: RADAR_SECS.map(secLbl), datasets: [
+      { label: 'Di sempre', data: allV.map(pct), backgroundColor: '#9b5de5cc', borderColor: '#7b3fbf', borderWidth: 1, pointRadius: 0 },
+      { label: 'Periodo', data: perV.map(pct), backgroundColor: '#f2a2dcdd', borderColor: '#e07cc8', borderWidth: 1, pointRadius: 2, pointBackgroundColor: '#fff' },
+    ] },
+    options: {
+      layout: { padding: 6 },
+      scales: { r: { min: 0, max: 100, ticks: { display: false, stepCount: 5 }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
+        pointLabels: { padding: 22, font: { size: 11, weight: '600' }, color: css('--text'),
+          callback: (l, i) => [l, perV[i] ? `${perV[i]} W` : '–'] } } },
+      plugins: {
+        radarArcs: { groups: RADAR_GROUPS },
+        tooltip: { callbacks: { label: t => `${t.dataset.label}: ${t.datasetIndex ? perV[t.dataIndex] : allV[t.dataIndex]} W (${t.raw}% del record)` } },
+      },
+    },
+    plugins: [radarArcs],
+  });
+
+  // Cuore: ore per zona nel periodo vs il periodo precedente della stessa durata
+  const len = R.to - R.from + 864e5;
+  const prev = acts.filter(a => a.date >= R.from - len && a.date < R.from);
+  const zoneHours = list => {
+    const z = [];
+    list.forEach(a => (a.hrZones || []).forEach((s, i) => (z[i] = (z[i] || 0) + s)));
+    return z.map(x => +(x / 3600).toFixed(1));
+  };
+  const zc = zoneHours(ra), zp = zoneHours(prev);
+  const nZ = Math.max(zc.length, zp.length, 5);
+  const names = settings.hrZoneNames || [];
+  const lims = settings.hrZones || [];
+  const IT = { Recovery: 'Recupero', Aerobic: 'Aerobico', Tempo: 'Tempo', SubThreshold: 'Sotto soglia', SuperThreshold: 'Sopra soglia', 'Aerobic Capacity': 'Capacità aerobica', Anaerobic: 'Anaerobico' };
+  const tot = zc.reduce((s, x) => s + (x || 0), 0) || 1;
+  chart('radarHr', {
+    type: 'radar',
+    data: { labels: Array.from({ length: nZ }, (_, i) => `Z${i + 1} ${IT[names[i]] || names[i] || ''}`.trim()), datasets: [
+      { label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => zp[i] || 0), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
+      { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => zc[i] || 0), backgroundColor: '#ef6b6bbb', borderColor: '#d64545', borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: '#fff' },
+    ] },
+    options: {
+      layout: { padding: 6 },
+      scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
+        pointLabels: { padding: 10, font: { size: 11, weight: '600' }, color: css('--text'),
+          callback: (l, i) => [l, `${zc[i] || 0} h · ${Math.round((zc[i] || 0) / tot * 100)}%${lims[i] ? ` · ≤${lims[i]}` : ''}`] } } },
+      plugins: { tooltip: { callbacks: { label: t => `${t.dataset.label}: ${t.raw} h` } } },
+    },
+  });
 }
 
 // ---------- Progresso annuale ----------
@@ -526,21 +616,33 @@ async function render() {
     options: { scales: { y2: { position: 'right', grid: { display: false } } } },
   });
 
-  // Mensile: tutti i mesi del periodo
-  const months = [];
-  const multiYear = new Date(R.from).getFullYear() !== new Date(R.to).getFullYear();
-  for (let d = new Date(new Date(R.from).getFullYear(), new Date(R.from).getMonth(), 1); d.getTime() <= R.to; d.setMonth(d.getMonth() + 1)) {
-    const e = new Date(d); e.setMonth(e.getMonth() + 1);
-    const m = ra.filter(a => a.date >= d.getTime() && a.date < e.getTime());
-    months.push({ label: d.toLocaleDateString('it-IT', { month: 'short', ...(multiYear ? { year: '2-digit' } : {}) }), km: sum(m, 'distance') / 1000, up: sum(m, 'ascent') });
-  }
+  // Mensile: ogni mese dell'anno dell'Al confrontato con lo stesso mese dell'anno prima (barre sovrapposte)
+  const yC = new Date(R.to).getFullYear(), yP = yC - 1;
+  const monthKm = y => Array.from({ length: 12 }, (_, mi) => {
+    const s0 = new Date(y, mi, 1).getTime(), e0 = new Date(y, mi + 1, 1).getTime();
+    const m = acts.filter(a => a.date >= s0 && a.date < e0);
+    return { km: sum(m, 'distance') / 1000, up: sum(m, 'ascent'), h: sum(m, 'movingTime') / 3600 };
+  });
+  const mC = monthKm(yC), mP = monthKm(yP);
+  const nowM = new Date().getFullYear() === yC ? new Date().getMonth() : 11;
+  $('monthTitle').textContent = `Volume mensile · ${yC} vs ${yP}`;
   chart('monthChart', {
     type: 'bar',
-    data: { labels: months.map(m => m.label), datasets: [
-      { label: 'Km', data: months.map(m => Math.round(m.km)), backgroundColor: '#1f9d55' },
-      { label: 'Dislivello (m)', type: 'line', data: months.map(m => Math.round(m.up)), borderColor: '#8891a0', yAxisID: 'y2' },
+    data: { labels: Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString('it-IT', { month: 'short' })), datasets: [
+      { label: String(yP), data: mP.map(m => Math.round(m.km)), backgroundColor: '#8891a055', borderColor: '#8891a0', borderWidth: 1, barPercentage: .9, categoryPercentage: .9, order: 2 },
+      { label: String(yC), data: mC.map((m, i) => (i <= nowM ? Math.round(m.km) : null)), backgroundColor: '#1f9d55', barPercentage: .55, categoryPercentage: .9, order: 1 },
     ] },
-    options: { scales: { y2: { position: 'right', grid: { display: false } } } },
+    options: {
+      scales: { x: { stacked: false }, y: { title: { display: true, text: 'km' } } },
+      // Barre una sopra l'altra invece che affiancate
+      datasets: { bar: { grouped: false } },
+      plugins: { tooltip: { callbacks: { afterBody: items => {
+        const i = items[0].dataIndex, c = mC[i], q = mP[i];
+        if (!q.km) return `${yC}: ${Math.round(c.h)} h · ${Math.round(c.up)} m D+`;
+        const d = Math.round((c.km - q.km) / q.km * 100);
+        return [`Differenza km: ${d >= 0 ? '+' : ''}${d}%`, `${yC}: ${Math.round(c.h)} h · ${Math.round(c.up).toLocaleString('it-IT')} m D+`, `${yP}: ${Math.round(q.h)} h · ${Math.round(q.up).toLocaleString('it-IT')} m D+`];
+      } } } },
+    },
   });
 
   // Curva di potenza del periodo: da intervals (scaricata per l'intervallo scelto) + file FIT caricati
@@ -568,6 +670,9 @@ async function render() {
     options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { y: { reverse: true } } } // Z1 in basso, Z7 in alto,
   });
 
+  // Grafici a disco: livelli di potenza e zone cardiache del periodo
+  drawRadars(R, ra, acts);
+
   // Progresso annuale (sempre sull'anno solare, indipendente dal periodo)
   $('yearCard').hidden = !acts.length;
   if (acts.length) yearProgress(acts);
@@ -586,7 +691,7 @@ async function render() {
 
 let calMonth = new Date(); calMonth.setDate(1);
 function drawCalendar(acts, events) {
-  renderCalendar($('calView'), { month: calMonth, acts, events });
+  renderCalendar($('calView'), { month: calMonth, acts, events, reverse: settings.calOrder === 'desc' });
   $('calView').querySelectorAll('[data-cal]').forEach(b => b.onclick = () => {
     const step = +b.dataset.cal;
     if (step === 0) { calMonth = new Date(); calMonth.setDate(1); }

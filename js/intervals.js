@@ -21,7 +21,8 @@ async function callRaw(settings, path, { method = 'GET', body } = {}) {
 export async function fetchAthlete(settings) {
   const a = await call(settings, '');
   const ride = (a.sportSettings || []).find(s => (s.types || []).includes('Ride')) || {};
-  return { name: a.name, ftp: ride.ftp, lthr: ride.lthr, maxHr: ride.max_hr, weight: a.icu_weight ?? a.weight };
+  return { name: a.name, ftp: ride.ftp, lthr: ride.lthr, maxHr: ride.max_hr, weight: a.icu_weight ?? a.weight,
+    hrZoneNames: ride.hr_zone_names || null, hrZones: ride.hr_zones || null };
 }
 
 export async function fetchActivities(settings, days = 365) {

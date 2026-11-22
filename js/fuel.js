@@ -61,6 +61,6 @@ export function fuelHtml(p, { planned = false } = {}) {
       <li><b>${during.split(':')[0]}</b> ·${during.slice(during.indexOf(':') + 1)}</li>
       <li><b>Dopo</b> · ${p.post}</li>
     </ul>
-    <div class="hint">Indicazioni generali per durata e intensità (IF ${p.IF.toFixed(2)}); con il caldo aumenta liquidi e sodio. Prova sempre in allenamento ciò che userai in gara.</div>
+    <div class="hint">Indicazioni generali per durata e intensità (IF ${p.IF.toFixed(2)}); con il caldo aumenta liquidi e sodio.</div>
   </div>`;
 }

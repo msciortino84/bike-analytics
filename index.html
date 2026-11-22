@@ -52,6 +52,10 @@
       <div class="card workout" id="workout"></div>
       <div class="card"><h2>Consigli</h2><div id="advice"></div></div>
       <div class="card year" id="yearCard" hidden></div>
+      <div class="grid2" id="radarRow">
+        <div class="card"><h2>Livelli di potenza</h2><div class="chart radar"><canvas id="radarPower"></canvas></div></div>
+        <div class="card"><h2>Zone cardiache</h2><div class="chart radar"><canvas id="radarHr"></canvas></div></div>
+      </div>
       <div class="card" id="wellCard" hidden><h2>Recupero: HRV, sonno e FC a riposo</h2><div class="chart"><canvas id="wellChart"></canvas></div></div>
       <div class="card"><h2>Fitness · Fatica · Forma</h2><div class="chart"><canvas id="pmcChart"></canvas></div></div>
       <div class="grid2">
@@ -59,7 +63,7 @@
         <div class="card"><h2>Curva di potenza del periodo</h2><div class="chart"><canvas id="curveChart"></canvas></div></div>
       </div>
       <div class="grid2">
-        <div class="card"><h2>Volume mensile</h2><div class="chart"><canvas id="monthChart"></canvas></div></div>
+        <div class="card"><h2 id="monthTitle">Volume mensile</h2><div class="chart"><canvas id="monthChart"></canvas></div></div>
         <div class="card"><h2>Tempo nelle zone di potenza</h2><div class="chart"><canvas id="zoneChart"></canvas></div></div>
       </div>
     </section>
@@ -112,6 +116,11 @@
           <label><input type="radio" name="theme" value="dark">Scuro</label>
         </div>
         <p class="hint" style="margin-top:8px">Automatico segue l'impostazione del telefono o del computer.</p>
+        <h2 style="margin-top:14px">Ordine del calendario</h2>
+        <div class="seg" role="radiogroup" aria-label="Ordine calendario">
+          <label><input type="radio" name="calOrder" value="asc">Dal più vecchio</label>
+          <label><input type="radio" name="calOrder" value="desc">Dal più recente</label>
+        </div>
       </div>
       <div class="card">
         <h2>Soglie</h2>

@@ -108,7 +108,7 @@ function paceBadge(tss, time, pTss, pTime, future) {
 }
 const DOW = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
-export function renderCalendar(el, { month, acts, events }) {
+export function renderCalendar(el, { month, acts, events, reverse = false }) {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const start = startOfDay(first.getTime() - ((first.getDay() + 6) % 7) * 864e5); // lunedì
   const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
@@ -120,9 +120,11 @@ export function renderCalendar(el, { month, acts, events }) {
     <b>${first.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}</b>
     <button data-cal="1" aria-label="Mese successivo">›</button>
     <button data-cal="0">Oggi</button></div>
-    <div class="cal-grid"><div class="cal-dow">${DOW.map(d => `<span>${d}</span>`).join('')}<span>Settimana</span></div>`;
+    <div class="cal-grid${reverse ? ' rev' : ''}"><div class="cal-dow">${DOW.map(d => `<span>${d}</span>`).join('')}<span>Settimana</span></div>`;
 
+  const head = html, weeksHtml = [];
   for (let w = start; w <= last.getTime(); w += 7 * 864e5) {
+    html = '';
     let wTss = 0, wTime = 0, pTss = 0, pTime = 0, pTssNow = 0, pTimeNow = 0; // *Now = previsto fino a oggi
     const wEnd = new Date(dayOf(w).getTime() + 6 * 864e5);
     const wk = isoWeek(dayOf(w));
@@ -163,8 +165,10 @@ export function renderCalendar(el, { month, acts, events }) {
       <div><span>Fatto</span><b>${Math.round(wTss)} TSS</b><span>${fmtDur(wTime)}</span>${paceBadge(wTss, wTime, pTssNow, pTimeNow, w > today)}</div>
       ${pTss || pTime ? `<div class="pl"><span>Previsto</span><b>${Math.round(pTss)} TSS</b><span>${fmtDur(pTime)}</span></div>` : ''}
     </div></div>`;
+    weeksHtml.push(html);
   }
-  html += '</div><div id="calDetail"></div>';
+  // Ordine scelto in Impostazioni: dal più recente = settimane al contrario
+  html = head + (reverse ? weeksHtml.reverse() : weeksHtml).join('') + '</div><div id="calDetail"></div>';
   el.innerHTML = html;
 }
 
