@@ -344,3 +344,27 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 /* Badge record corti, con coppa davanti */
 .ac-badges::before { content: "🏆"; font-size: 13px; margin-right: 2px; }
 .ac-badges span { cursor: help; }
+
+/* Intestazione scheda con interruttore (es. km / ore) */
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.card-head h2 { margin: 0; }
+.seg.mini button { margin: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0; padding: 4px 10px; font-size: 12.5px; background: var(--card); color: var(--text); }
+.seg.mini button:first-child { border-left: 0; }
+.seg.mini button.on { background: var(--accent); color: #fff; }
+
+/* Su telefono le schede affiancate non devono allargare la pagina */
+.grid2 > * { min-width: 0; }
+.chart canvas { max-width: 100%; }
+
+/* Fumetto sui badge record (mouse o tocco) */
+.ac-badges .tip { position: relative; }
+.ac-badges .tip::after { content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 20; white-space: nowrap;
+  background: #1b1f24; color: #fff; font-size: 12px; font-weight: 500; padding: 5px 8px; border-radius: 7px; box-shadow: 0 3px 10px #0005;
+  opacity: 0; pointer-events: none; transition: opacity .15s; }
+.ac-badges .tip:hover::after, .ac-badges .tip.tip-on::after { opacity: 1; }
+
+/* Indicatore di passo: percentuale e parola su due righe, sempre dentro la colonna */
+.cal-sum em.pace { white-space: normal; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; border-radius: 6px; padding: 2px 6px; max-width: 100%; }
+.cal-sum em.pace small { font-size: 10px; font-weight: 600; }
+.cal-sum div { min-width: 0; overflow: hidden; }
+@media (max-width: 700px) { .cal-sum em.pace { flex-direction: row; gap: 4px; align-items: baseline; } }

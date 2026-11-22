@@ -277,7 +277,7 @@ function activityCards(list, all, R) {
       <div class="ac-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>
       <div class="ac-body">
         <div class="ac-title">${esc(cleanName(a.name))}<button class="ac-del" data-del="${a.id}" title="Elimina dallo storico locale" aria-label="Elimina">✕</button></div>
-        ${bd.length ? `<div class="ac-badges">${bd.map(([ic, w, t]) => `<span title="🏆 ${t}">${ic} ${w}</span>`).join('')}</div>` : ''}
+        ${bd.length ? `<div class="ac-badges">${bd.map(([ic, w, t]) => `<span class="tip" data-tip="${t}">${ic} ${w}</span>`).join('')}</div>` : ''}
         <div class="ac-metrics">
           ${metric('durata', fmtDur(a.movingTime), 'movingTime', 'c-time')}
           ${metric('km', (a.distance / 1000).toFixed(1), 'distance', 'c-time')}
@@ -294,6 +294,7 @@ function activityCards(list, all, R) {
 }
 
 // ---------- Grafici a disco ----------
+const HR_COLORS = ['#8891a0', '#2f6fde', '#1f9d55', '#e2b008', '#e0662b', '#d64545', '#7b3fbf'];
 const RADAR_SECS = [15, 30, 60, 120, 180, 300, 600, 900, 1200, 1800, 2700, 3600];
 const RADAR_GROUPS = [ // archi colorati esterni, come i "livelli di potenza"
   { from: 0, to: 2, color: '#1f6fd6', name: 'Sprint' },
@@ -303,7 +304,7 @@ const RADAR_GROUPS = [ // archi colorati esterni, come i "livelli di potenza"
 const secLbl = s => (s < 60 ? `${s}s` : `${s / 60} m`);
 const radarArcs = {
   id: 'radarArcs',
-  afterDraw(c) {
+  afterDatasetsDraw(c) { // prima del tooltip, così il fumetto resta sopra gli archi
     const sc = c.scales.r, n = c.data.labels.length;
     if (!sc || !c.options.plugins.radarArcs?.groups) return;
     const { ctx } = c, step = (Math.PI * 2) / n, r = sc.drawingArea + 14;
@@ -364,16 +365,22 @@ async function drawRadars(R, ra, acts) {
     type: 'radar',
     data: { labels: Array.from({ length: nZ }, (_, i) => `Z${i + 1} ${IT[names[i]] || names[i] || ''}`.trim()), datasets: [
       { order: 2, label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zp[i] || 0)), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
-      { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zc[i] || 0)), backgroundColor: '#ef6b6bbb', borderColor: '#d64545', borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: '#fff' },
+      { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zc[i] || 0)), backgroundColor: '#ef6b6b99', borderColor: '#d64545', borderWidth: 1.5,
+        pointRadius: 5, pointBorderColor: '#fff', pointBorderWidth: 1.5, pointBackgroundColor: HR_COLORS.slice(0, nZ) },
     ] },
     options: {
       layout: { padding: 6 },
       scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
-        pointLabels: { padding: 10, font: { size: 11, weight: '600' }, color: css('--text'),
+        pointLabels: { padding: 24, font: { size: 11, weight: '700' }, color: c => HR_COLORS[c.index] || css('--text'),
           callback: (l, i) => [l, `${zc[i] || 0} h · ${Math.round((zc[i] || 0) / tot * 100)}%`] } } },
       // Raggio = radice delle ore: la Z1 (molte ore) non schiaccia le zone alte
-      plugins: { tooltip: { callbacks: { label: t => `${t.dataset.label}: ${(t.datasetIndex ? zc : zp)[t.dataIndex] || 0} h${lims[t.dataIndex] ? ` (fino a ${lims[t.dataIndex]} bpm)` : ''}` } } },
+      plugins: {
+        // Un arco colorato per ogni fascia cardiaca
+        radarArcs: { groups: Array.from({ length: nZ }, (_, i) => ({ from: i, to: i, color: HR_COLORS[i] })) },
+        tooltip: { callbacks: { label: t => `${t.dataset.label}: ${(t.datasetIndex ? zc : zp)[t.dataIndex] || 0} h${lims[t.dataIndex] ? ` (fino a ${lims[t.dataIndex]} bpm)` : ''}` } },
+      },
     },
+    plugins: [radarArcs],
   });
 }
 
@@ -627,21 +634,27 @@ async function render() {
   const mC = monthKm(yC), mP = monthKm(yP);
   const nowM = new Date().getFullYear() === yC ? new Date().getMonth() : 11;
   $('monthTitle').textContent = `Volume mensile · ${yC} vs ${yP}`;
+  // Unità scelta direttamente nella scheda: km, ore o dislivello
+  const mu = (() => { try { return localStorage.getItem('monthUnit') || 'km'; } catch { return 'km'; } })();
+  document.querySelectorAll('#monthUnit button').forEach(b => {
+    b.classList.toggle('on', b.dataset.u === mu);
+    b.onclick = () => { try { localStorage.setItem('monthUnit', b.dataset.u); } catch {} render(); };
+  });
   chart('monthChart', {
     type: 'bar',
     data: { labels: Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString('it-IT', { month: 'short' })), datasets: [
-      { label: String(yP), data: mP.map(m => Math.round(m.km)), backgroundColor: '#8891a055', borderColor: '#8891a0', borderWidth: 1, barPercentage: .9, categoryPercentage: .9, order: 2 },
-      { label: String(yC), data: mC.map((m, i) => (i <= nowM ? Math.round(m.km) : null)), backgroundColor: '#1f9d55', barPercentage: .55, categoryPercentage: .9, order: 1 },
+      { label: String(yP), data: mP.map(m => Math.round(m[mu])), backgroundColor: '#8891a055', borderColor: '#8891a0', borderWidth: 1, barPercentage: .9, categoryPercentage: .9, order: 2 },
+      { label: String(yC), data: mC.map((m, i) => (i <= nowM ? Math.round(m[mu]) : null)), backgroundColor: '#1f9d55', barPercentage: .55, categoryPercentage: .9, order: 1 },
     ] },
     options: {
-      scales: { x: { stacked: false }, y: { title: { display: true, text: 'km' } } },
+      scales: { x: { stacked: false }, y: { title: { display: true, text: { km: 'km', h: 'ore', up: 'metri D+' }[mu] } } },
       // Barre una sopra l'altra invece che affiancate
       datasets: { bar: { grouped: false } },
       plugins: { tooltip: { callbacks: { afterBody: items => {
         const i = items[0].dataIndex, c = mC[i], q = mP[i];
-        if (!q.km) return `${yC}: ${Math.round(c.h)} h · ${Math.round(c.up)} m D+`;
-        const d = Math.round((c.km - q.km) / q.km * 100);
-        return [`Differenza km: ${d >= 0 ? '+' : ''}${d}%`, `${yC}: ${Math.round(c.h)} h · ${Math.round(c.up).toLocaleString('it-IT')} m D+`, `${yP}: ${Math.round(q.h)} h · ${Math.round(q.up).toLocaleString('it-IT')} m D+`];
+        if (!q[mu]) return `${yC}: ${Math.round(c.h)} h · ${Math.round(c.up)} m D+`;
+        const d = q[mu] ? Math.round((c[mu] - q[mu]) / q[mu] * 100) : 0;
+        return [`Differenza: ${d >= 0 ? '+' : ''}${d}%`, `${yC}: ${Math.round(c.h)} h · ${Math.round(c.up).toLocaleString('it-IT')} m D+`, `${yP}: ${Math.round(q.h)} h · ${Math.round(q.up).toLocaleString('it-IT')} m D+`];
       } } } },
     },
   });
@@ -685,6 +698,11 @@ async function render() {
     if (confirm('Eliminare questa attività dallo storico locale?')) { await delAct(b.dataset.del); render(); }
   });
   document.querySelectorAll('[data-open]').forEach(r => r.onclick = () => openDetail(acts.find(a => a.id === r.dataset.open)));
+  document.querySelectorAll('.ac-badges .tip').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    document.querySelectorAll('.tip.tip-on').forEach(x => x !== b && x.classList.remove('tip-on'));
+    b.classList.toggle('tip-on');
+  });
 
   // Calendario
   drawCalendar(acts, events);
@@ -746,7 +764,7 @@ function terrainStats(s) {
       if (g > 0.015) up += dd; else if (g < -0.015) down += dd; else flat += dd;
       i0 = i;
     }
-    out.tipKm = `In salita ${(up / 1000).toFixed(1)} km · in pianura ${(flat / 1000).toFixed(1)} km · in discesa ${(down / 1000).toFixed(1)} km`;
+    out.tipKm = `↗ ${(up / 1000).toFixed(1)} · → ${(flat / 1000).toFixed(1)} · ↘ ${(down / 1000).toFixed(1)} km`;
   }
   if (d.length > 10 && t.length === d.length) {
     // Velocità su finestre di 5 s; la minima considera solo i tratti in movimento (> 3 km/h)
@@ -758,14 +776,14 @@ function terrainStats(s) {
     const mov = sp.filter(v => v > 3 && v < 120).sort((x, y) => x - y);
     if (mov.length) {
       const q = p => mov[Math.min(mov.length - 1, Math.floor(mov.length * p))];
-      out.tipSpeed = `Massima ${mov[mov.length - 1].toFixed(1)} km/h · minima in movimento ${q(0.02).toFixed(1)} km/h · mediana ${q(0.5).toFixed(1)} km/h`;
+      out.tipSpeed = `▲ ${mov[mov.length - 1].toFixed(1)} · ▼ ${q(0.02).toFixed(1)} km/h`;
     }
   }
   const alts = al.filter(v => v != null);
   if (alts.length) {
     let mx = -Infinity, mn = Infinity;
     for (const v of alts) { if (v > mx) mx = v; if (v < mn) mn = v; }
-    out.tipAlt = `Altitudine massima ${Math.round(mx)} m · minima ${Math.round(mn)} m`;
+    out.tipAlt = `▲ ${Math.round(mx)} m · ▼ ${Math.round(mn)} m`;
   }
   return out;
 }
@@ -919,9 +937,9 @@ async function openDetail(a) {
     if (s.cad[i]) pedal += dt; else coast += dt;
   }
   const pct = (x, t) => t ? ` (${Math.round(x / t * 100)}%)` : '';
-  const tipDur = `Tempo totale ${fmtDur(elapsed)} · in movimento ${fmtDur(a.movingTime)} · pause ${fmtDur(pause)}${pct(pause, elapsed)}`;
+  const tipDur = `⏱ ${fmtDur(elapsed)} · ⏸ ${fmtDur(pause)}${pct(pause, elapsed)}`;
   const terrain = terrainStats(s);
-  const tipCad = s.cad?.length ? `Pedalando ${fmtDur(pedal)} · senza pedalare ${fmtDur(coast)}${pct(coast, pedal + coast)}` : null;
+  const tipCad = s.cad?.length ? `⟳ ${fmtDur(pedal)} · ⏸ ${fmtDur(coast)}${pct(coast, pedal + coast)}` : null;
   const maxHr = hrs.length ? Math.max(...hrs) : null;
   const maxP = hasPower ? Math.max(...power) : null;
   const kj = hasPower ? Math.round(power.reduce((x, y) => x + y, 0) / 1000) : null;

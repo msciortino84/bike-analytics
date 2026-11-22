@@ -103,8 +103,8 @@ function paceBadge(tss, time, pTss, pTime, future) {
   const r = pTss ? tss / pTss : time / pTime;
   const rt = pTime ? time / pTime : null;
   const cls = r >= 0.9 ? 'ok' : r >= 0.7 ? 'warn' : 'low';
-  const txt = r >= 1.1 ? 'sopra il piano' : r >= 0.9 ? 'al passo' : r >= 0.7 ? "un po' sotto" : 'sotto il piano';
-  return `<em class="pace ${cls}" title="TSS ${Math.round(r * 100)}%${rt != null ? ` · ore ${Math.round(rt * 100)}%` : ''} del previsto finora">${r >= 0.9 ? '▲' : '▼'} ${Math.round(r * 100)}% · ${txt}</em>`;
+  const txt = r >= 1.1 ? 'sopra' : r >= 0.9 ? 'al passo' : r >= 0.7 ? "un po' sotto" : 'sotto';
+  return `<em class="pace ${cls}" title="TSS ${Math.round(r * 100)}%${rt != null ? ` · ore ${Math.round(rt * 100)}%` : ''} del previsto finora">${r >= 0.9 ? '▲' : '▼'} ${Math.round(r * 100)}%<small>${txt}</small></em>`;
 }
 const DOW = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
