@@ -36,7 +36,8 @@
   <main>
     <section id="tab-dash" class="tab active">
       <!-- Intervallo di date: rimodula KPI e grafici della dashboard -->
-      <div class="range-bar">
+      <div class="range-sentinel" id="rangeSentinel"></div>
+      <div class="range-bar" id="rangeBar">
         <div class="range-presets">
           <button data-range="4w">4 sett</button><button data-range="3m">3 mesi</button><button data-range="6m">6 mesi</button>
           <button data-range="ytd">Anno</button><button data-range="1y">12 mesi</button><button data-range="all">Tutto</button>
@@ -78,6 +79,7 @@
     <section id="tab-detail" class="tab">
       <button id="backBtn">← Storico</button>
       <div class="card"><h2 id="dTitle"></h2><div class="kpis" id="dKpis"></div></div>
+      <details class="card fuel-box" id="dFuel" open hidden><summary>🍌 Integrazione consigliata per un'uscita così</summary><div id="dFuelBody"></div></details>
       <div class="card"><h2>Potenza e battito</h2><div class="chart tall"><canvas id="dPowerChart"></canvas></div><div id="dKeys"></div></div>
       <div class="card" id="dMapCard" hidden><h2>Percorso</h2><div id="dMap" class="map"></div></div>
       <div class="grid2">

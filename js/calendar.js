@@ -1,5 +1,6 @@
 // Calendario mensile stile intervals: uscite fatte, allenamenti pianificati con mini schema, totali settimanali.
 import { startOfDay } from './metrics.js';
+import { fuelPlan, fuelHtml } from './fuel.js';
 
 // ---------- Struttura del workout ----------
 // Ritorna un elenco piatto di blocchi { secs, from, to } con intensità in % FTP.
@@ -96,6 +97,15 @@ function isoWeek(d) {
   t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
   return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
 }
+// Indicatore di passo: fatto rispetto al previsto fino a oggi (settimana in corso) o all'intera settimana (passate)
+function paceBadge(tss, time, pTss, pTime, future) {
+  if (future || (!pTss && !pTime)) return '';
+  const r = pTss ? tss / pTss : time / pTime;
+  const rt = pTime ? time / pTime : null;
+  const cls = r >= 0.9 ? 'ok' : r >= 0.7 ? 'warn' : 'low';
+  const txt = r >= 1.1 ? 'sopra il piano' : r >= 0.9 ? 'al passo' : r >= 0.7 ? "un po' sotto" : 'sotto il piano';
+  return `<em class="pace ${cls}" title="TSS ${Math.round(r * 100)}%${rt != null ? ` · ore ${Math.round(rt * 100)}%` : ''} del previsto finora">${r >= 0.9 ? '▲' : '▼'} ${Math.round(r * 100)}% · ${txt}</em>`;
+}
 const DOW = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
 export function renderCalendar(el, { month, acts, events }) {
@@ -113,7 +123,7 @@ export function renderCalendar(el, { month, acts, events }) {
     <div class="cal-grid"><div class="cal-dow">${DOW.map(d => `<span>${d}</span>`).join('')}<span>Settimana</span></div>`;
 
   for (let w = start; w <= last.getTime(); w += 7 * 864e5) {
-    let wTss = 0, wTime = 0, pTss = 0, pTime = 0;
+    let wTss = 0, wTime = 0, pTss = 0, pTime = 0, pTssNow = 0, pTimeNow = 0; // *Now = previsto fino a oggi
     const wEnd = new Date(dayOf(w).getTime() + 6 * 864e5);
     const wk = isoWeek(dayOf(w));
     html += `<div class="cal-week"><div class="cal-wlabel">Settimana ${wk}
@@ -133,6 +143,7 @@ export function renderCalendar(el, { month, acts, events }) {
           const blocks = workoutBlocks(e);
           const secs = e.duration || blocksDuration(blocks);
           pTss += e.load || 0; pTime += secs || 0;
+          if (d <= today) { pTssNow += e.load || 0; pTimeNow += secs || 0; }
           html += `<div class="cal-ev ${isRace ? 'race' : 'plan'}" data-ev="${esc(e.id)}">
             <div class="cal-ev-t">${isRace ? '🏁 ' : ''}${esc(clean(e.name))}</div>
             ${blocks.length ? workoutSvg(blocks) : ''}
@@ -149,7 +160,7 @@ export function renderCalendar(el, { month, acts, events }) {
       html += '</div>';
     }
     html += `<div class="cal-sum">
-      <div><span>Fatto</span><b>${Math.round(wTss)} TSS</b><span>${fmtDur(wTime)}</span></div>
+      <div><span>Fatto</span><b>${Math.round(wTss)} TSS</b><span>${fmtDur(wTime)}</span>${paceBadge(wTss, wTime, pTssNow, pTimeNow, w > today)}</div>
       ${pTss || pTime ? `<div class="pl"><span>Previsto</span><b>${Math.round(pTss)} TSS</b><span>${fmtDur(pTime)}</span></div>` : ''}
     </div></div>`;
   }
@@ -157,14 +168,20 @@ export function renderCalendar(el, { month, acts, events }) {
   el.innerHTML = html;
 }
 
-export function renderEventDetail(el, e, canAdd) {
+export function renderEventDetail(el, e, athlete = {}) {
   const blocks = workoutBlocks(e);
+  // Integrazione per l'allenamento previsto: intensità dal TSS pianificato (IF = √(TSS / ore / 100))
+  const secs = e.duration || blocksDuration(blocks);
+  const IF = e.load && secs ? Math.sqrt(e.load / (secs / 3600) / 100) : null;
+  const fuel = /WORKOUT|RACE/.test(e.category || '') && secs
+    ? fuelPlan({ secs, ifactor: IF, weight: athlete.weight, kj: athlete.ftp && IF ? athlete.ftp * IF * secs / 1000 : null }) : null;
   el.innerHTML = `<div class="card cal-detail">
     <h2>${new Date(e.date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
     <div class="name">${esc(clean(e.name))}</div>
     ${blocks.length ? workoutSvg(blocks, 60).replace('wo-svg', 'wo-svg big') : ''}
     <div class="hint">${e.duration || blocks.length ? fmtDur(e.duration || blocksDuration(blocks)) : ''}${e.load ? ` · ${e.load} TSS previsti` : ''}</div>
     ${e.description ? `<pre>${esc(e.description)}</pre>` : ''}
+    ${fuel ? `<details class="fuel-box" open><summary>🍌 Integrazione consigliata</summary>${fuelHtml(fuel, { planned: true })}</details>` : ''}
   </div>`;
   el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }

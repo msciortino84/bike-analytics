@@ -3,6 +3,7 @@ import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay, bestEffo
 import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout } from './intervals.js';
 import { buildAdvice, wellnessStatus, suggestWorkout } from './advice.js';
 import { renderCalendar, renderEventDetail } from './calendar.js';
+import { fuelPlan, fuelHtml } from './fuel.js';
 
 // ---------- Archivio locale (IndexedDB) ----------
 const db = await new Promise((res, rej) => {
@@ -381,6 +382,13 @@ for (const id of ['rangeFrom', 'rangeTo']) $(id).addEventListener('change', () =
   if ($('rangeFrom').value && $('rangeTo').value) setRange({ preset: null, from: $('rangeFrom').value, to: $('rangeTo').value });
 });
 
+// Barra date: quando resta attaccata in alto diventa compatta (solo telefono, via CSS)
+new IntersectionObserver(([e]) => {
+  $('rangeBar').classList.toggle('stuck', !e.isIntersecting);
+  if (e.isIntersecting) $('rangeBar').classList.remove('open');
+}).observe($('rangeSentinel'));
+$('rangeInfo').onclick = () => { if ($('rangeBar').classList.contains('stuck')) $('rangeBar').classList.toggle('open'); };
+
 // Curva di potenza di intervals per l'intervallo scelto (in memoria per la sessione)
 const curveCache = new Map();
 async function curveForRange(R) {
@@ -545,7 +553,7 @@ async function render() {
     type: 'bar',
     data: { labels: POWER_ZONES.map(x => x.name), datasets: [{ label: 'Ore', data: z.map(s => +(s / 3600).toFixed(1)),
       backgroundColor: ['#8891a0', '#2f6fde', '#1f9d55', '#d98a00', '#e0662b', '#d64545', '#7b3fbf'] }] },
-    options: { indexAxis: 'y', plugins: { legend: { display: false } } },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { y: { reverse: true } } } // Z1 in basso, Z7 in alto,
   });
 
   // Progresso annuale (sempre sull'anno solare, indipendente dal periodo)
@@ -575,7 +583,7 @@ function drawCalendar(acts, events) {
   });
   $('calView').querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
     const ev = events.find(e => String(e.id) === b.dataset.ev);
-    if (!matchMedia('(max-width: 700px)').matches) return renderEventDetail($('calDetail'), ev);
+    if (!matchMedia('(max-width: 700px)').matches) return renderEventDetail($('calDetail'), ev, settings);
     // Telefono: il dettaglio si apre sul posto, sotto l'allenamento toccato; ritoccando si chiude
     const open = b.nextElementSibling?.classList.contains('cal-inline');
     $('calView').querySelectorAll('.cal-inline').forEach(x => x.remove());
@@ -585,7 +593,7 @@ function drawCalendar(acts, events) {
     box.className = 'cal-inline';
     b.after(box);
     b.classList.add('sel');
-    renderEventDetail(box, ev);
+    renderEventDetail(box, ev, settings);
   });
   $('calView').querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDetail(acts.find(a => a.id === b.dataset.open)));
 }
@@ -728,6 +736,7 @@ async function openDetail(a) {
   showTab('detail');
   $('dTitle').textContent = `${a.name} · ${fmtDate(a.date)}`;
   $('dBest').innerHTML = '<p class="hint">Caricamento…</p>';
+  $('dFuel').hidden = true;
   let s = a.streams;
   // v2 = stream con coordinate GPS: quelli salvati prima vanno riscaricati una volta
   if (a.source === 'intervals' && (!s || s.v !== 2)) {
@@ -743,6 +752,18 @@ async function openDetail(a) {
   const np = hasPower ? Math.round(normalizedPower(power)) : a.np;
   const hrs = (s.hr || []).filter(Boolean);
   const cads = (s.cad || []).filter(Boolean);
+  // Tempo totale vs in movimento → pause; secondi con cadenza 0 (registrazione attiva) → senza pedalare
+  const elapsed = s.time[s.time.length - 1] || a.movingTime;
+  const pause = Math.max(0, elapsed - (a.movingTime || elapsed));
+  let coast = 0, pedal = 0;
+  if (s.cad?.length) for (let i = 1; i < s.time.length; i++) {
+    const dt = s.time[i] - s.time[i - 1];
+    if (dt > 5) continue; // buco di registrazione = pausa, già conteggiata
+    if (s.cad[i]) pedal += dt; else coast += dt;
+  }
+  const pct = (x, t) => t ? ` (${Math.round(x / t * 100)}%)` : '';
+  const tipDur = `Tempo totale ${fmtDur(elapsed)} · in movimento ${fmtDur(a.movingTime)} · pause ${fmtDur(pause)}${pct(pause, elapsed)}`;
+  const tipCad = s.cad?.length ? `Pedalando ${fmtDur(pedal)} · senza pedalare ${fmtDur(coast)}${pct(coast, pedal + coast)}` : null;
   const maxHr = hrs.length ? Math.max(...hrs) : null;
   const maxP = hasPower ? Math.max(...power) : null;
   const kj = hasPower ? Math.round(power.reduce((x, y) => x + y, 0) / 1000) : null;
@@ -750,14 +771,19 @@ async function openDetail(a) {
   const speed = a.movingTime ? (a.distance / a.movingTime) * 3.6 : 0;
   $('dKpis').innerHTML = [
     // Ordinati per categoria: percorso, carico, potenza, battito, cadenza
-    ['Durata', fmtDur(a.movingTime), 'time'], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time'],
+    ['Durata', fmtDur(a.movingTime), 'time', tipDur], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time'],
     ['Dislivello', `${Math.round(a.ascent || 0)} m`, 'time'], ['Velocità media', `${speed.toFixed(1)} km/h`, 'time'],
     ['TSS', a.tss ?? '–', 'load'], ['IF', a.ifactor ?? '–', 'load'],
     ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–', 'power'], ['NP', np ? `${np} W` : '–', 'power'],
     ['Potenza max', maxP ? `${maxP} W` : '–', 'power'], ...(vi ? [['Variabilità (VI)', vi, 'power']] : []),
     ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–', 'hr'],
-    ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–', 'cad'],
+    ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–', 'cad', tipCad],
   ].map(kpi).join('');
+
+  // Integrazione consigliata per durata e intensità di questa uscita
+  const fuel = fuelPlan({ secs: a.movingTime, ifactor: a.ifactor || (np && settings.ftp ? np / settings.ftp : null), weight: settings.weight, kj });
+  $('dFuel').hidden = !fuel;
+  $('dFuelBody').innerHTML = fuelHtml(fuel);
 
   // Grafico potenza + battito nel tempo, smussato, con i momenti chiave numerati
   const hrSec = resample(s.time, s.hr || []);
@@ -902,7 +928,7 @@ async function openDetail(a) {
       type: 'bar',
       data: { labels: POWER_ZONES.map(x => x.name), datasets: [{ label: 'Minuti', data: z.map(x => Math.round(x / 60)),
         backgroundColor: ['#8891a0', '#2f6fde', '#1f9d55', '#d98a00', '#e0662b', '#d64545', '#7b3fbf'] }] },
-      options: { indexAxis: 'y', plugins: { legend: { display: false } } },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { y: { reverse: true } } } // Z1 in basso, Z7 in alto,
     });
   } else {
     $('dBest').innerHTML = '<p class="hint">Nessun dato di potenza.</p>';
@@ -910,7 +936,14 @@ async function openDetail(a) {
   }
 }
 
-const kpi = ([l, v, cat]) => `<div class="kpi${cat ? ' c-' + cat : ''}"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+// Riquadro dato; con `tip` mostra un fumetto al passaggio del mouse o al tocco (telefono)
+const kpi = ([l, v, cat, tip]) => `<div class="kpi${cat ? ' c-' + cat : ''}${tip ? ' has-tip' : ''}"${tip ? ` tabindex="0" data-tip="${esc(tip)}"` : ''}>
+  <div class="v">${v}</div><div class="l">${l}${tip ? ' <span class="i">ⓘ</span>' : ''}</div></div>`;
+document.addEventListener('click', e => {
+  const k = e.target.closest('.has-tip');
+  document.querySelectorAll('.has-tip.tip-on').forEach(x => x !== k && x.classList.remove('tip-on'));
+  if (k) k.classList.toggle('tip-on');
+});
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 fillSettings();

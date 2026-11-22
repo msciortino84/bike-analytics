@@ -252,3 +252,49 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 .kb-nums .num { flex: none; border-radius: 50%; border: 2px solid var(--c); color: var(--c); font-weight: 700; display: grid; place-items: center; background: var(--card); }
 .kb-t { white-space: nowrap; }
 @media (max-width: 420px) { .kb-nums .num:nth-child(n+5) { display: none; } }
+
+/* Barra date su telefono: fissa in alto (sotto la barra di stato dell'iPhone) e compatta mentre si scorre */
+.range-bar { padding-top: calc(8px + env(safe-area-inset-top)); margin-top: calc(-4px - env(safe-area-inset-top)); background: var(--bg); }
+.range-sentinel { height: 1px; }
+@media (max-width: 700px) {
+  .range-bar { gap: 6px; padding-bottom: 8px; margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+  .range-presets { width: 100%; flex-wrap: nowrap; }
+  .range-presets button { padding: 4px 10px; font-size: 12.5px; }
+  .range-dates input { padding: 3px 6px; font-size: 16px; } /* 16px: evita lo zoom automatico di iOS */
+  .range-info { width: 100%; font-size: 11.5px; }
+  /* Mentre si scorre: restano le scorciatoie e una riga con le date, toccabile per riaprire */
+  .range-bar.stuck .range-dates { display: none; }
+  .range-bar.stuck .range-info { color: var(--accent); }
+  .range-bar.stuck .range-info::after { content: "  ✎ cambia date"; font-weight: 600; }
+  .range-bar.stuck.open .range-dates { display: flex; }
+  .range-bar.stuck.open .range-info::after { content: ""; }
+}
+
+/* Fumetto informativo sui riquadri (mouse o tocco) */
+.kpi.has-tip { position: relative; cursor: help; outline: none; }
+.kpi .l .i { font-size: 11px; opacity: .7; }
+.kpi.has-tip::after { content: attr(data-tip); position: absolute; left: 8px; right: 8px; top: calc(100% + 6px); z-index: 20;
+  background: #1b1f24; color: #fff; font-size: 12.5px; line-height: 1.4; padding: 8px 10px; border-radius: 8px; box-shadow: 0 4px 14px #0005;
+  opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .15s, transform .15s; }
+.kpi.has-tip:hover::after, .kpi.has-tip.tip-on::after { opacity: 1; transform: none; }
+@media (max-width: 700px) { .kpi.has-tip::after { left: 0; right: auto; width: calc(200% + 8px); } .kpis .kpi.has-tip:nth-child(even)::after { left: auto; right: 0; } }
+
+/* Indicatore di passo nei totali settimanali */
+.cal-sum em.pace { font-style: normal; font-size: 11px; font-weight: 700; margin-top: 3px; padding: 1px 6px; border-radius: 999px; align-self: flex-start; white-space: nowrap; }
+.pace.ok { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.pace.warn { color: var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent); }
+.pace.low { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+@media (max-width: 700px) { .cal-sum div { flex-wrap: wrap; } .cal-sum em.pace { margin: 0 0 0 auto; } }
+
+/* Integrazione consigliata */
+.fuel-box > summary { cursor: pointer; font-weight: 600; color: var(--muted); list-style: none; }
+.fuel-box > summary::-webkit-details-marker { display: none; }
+.fuel-box > summary::after { content: " ▾"; } .fuel-box[open] > summary::after { content: " ▴"; }
+.cal-detail .fuel-box { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.fuel { margin-top: 10px; }
+.fuel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 700px) { .fuel-grid { grid-template-columns: repeat(2, 1fr); } }
+.fz { border-radius: 10px; padding: 8px 10px; background: color-mix(in srgb, var(--c) 9%, var(--bg)); border-left: 3px solid var(--c); display: flex; flex-direction: column; }
+.fz span { font-size: 12px; color: var(--muted); } .fz b { font-size: 18px; color: var(--c); font-variant-numeric: tabular-nums; } .fz small { font-size: 11.5px; color: var(--muted); }
+.fz.cho { --c: #d98a00; } .fz.fl { --c: #2bb5c4; } .fz.na { --c: #8891a0; } .fz.kc { --c: #d64545; }
+.fuel ul { margin: 10px 0 6px; padding-left: 18px; font-size: 14px; } .fuel li { margin-bottom: 5px; }
