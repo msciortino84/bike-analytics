@@ -448,9 +448,11 @@ async function openDetail(a) {
 
   // Grafico potenza + battito nel tempo, smussato, con i momenti chiave numerati
   const hrSec = resample(s.time, s.hr || []);
-  const pSmooth = rolling(power, 30);           // media mobile 30 s: toglie i picchi di pedalata
-  const hSmooth = rolling(hrSec, 15, true);     // 15 s, ignorando i buchi del sensore
-  const N = 240;
+  // Smussamento proporzionato alla durata: 30″ per un'uscita breve, fino a 2′ per le lunghe.
+  const win = Math.round(Math.min(120, Math.max(30, power.length / 120)));
+  const pSmooth = rolling(power, win);
+  const hSmooth = rolling(hrSec, Math.round(win / 2), true); // il battito è già più regolare
+  const N = 200;
   const pw = downsample(pSmooth, N);
   const hr = downsample(hSmooth, N);
   const step = power.length / pw.length;
@@ -494,42 +496,51 @@ async function openDetail(a) {
     type: 'line',
     data: { labels, datasets: [
       ...(hasPower ? [
-        { label: 'Potenza (W, media 30″)', data: pw.map(x => x != null ? Math.round(x) : null), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf1c', fill: true, pointRadius: 0, borderWidth: 2, tension: .4, cubicInterpolationMode: 'monotone' },
+        { label: `Potenza (W, media ${win < 60 ? win + '″' : Math.round(win / 60) + '′'})`, data: pw.map(x => x != null ? Math.round(x) : null), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf1c', fill: true, pointRadius: 0, borderWidth: 2, tension: .4, cubicInterpolationMode: 'monotone' },
         { label: 'Tratti migliori', data: highlight, borderColor: 'transparent', backgroundColor: '#7b3fbf55', fill: 'origin', pointRadius: 0, tension: .4, spanGaps: false },
       ] : []),
       { label: 'Battito (bpm)', data: hr.map(x => x ? Math.round(x) : null), borderColor: '#d64545', pointRadius: 0, borderWidth: 2, tension: .4, cubicInterpolationMode: 'monotone', spanGaps: true, yAxisID: 'y2' },
       ...(hasPower && settings.ftp ? [{ label: 'FTP', data: pw.map(() => settings.ftp), borderColor: '#8891a0', borderDash: [5, 5], pointRadius: 0, borderWidth: 1 }] : []),
-      // Marcatori numerati
-      ...['p', 'h'].map(sr => ({
-        label: '_keys' + sr, data: pw.map((_, i) => { const k = keys.find(k => k.series === sr && at(k.sec) === i); return k ? (sr === 'p' ? pw[i] : hr[i]) : null; }),
-        showLine: false, pointRadius: 9, pointHoverRadius: 11, pointBackgroundColor: '#fff', pointBorderColor: pal[sr], pointBorderWidth: 2.5,
-        yAxisID: sr === 'p' ? 'y' : 'y2', keyNums: pw.map((_, i) => keys.find(k => k.series === sr && at(k.sec) === i)?.n ?? null),
-      })).filter(d => hasPower || d.label === '_keysh'),
     ] },
     options: {
+      layout: { padding: { top: 8 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { filter: l => !l.text.startsWith('_') && l.text !== 'Tratti migliori' } },
-        tooltip: { filter: t => !t.dataset.label.startsWith('_') && t.dataset.label !== 'Tratti migliori' },
+        legend: { labels: { filter: l => l.text !== 'Tratti migliori' } },
+        tooltip: { filter: t => t.dataset.label !== 'Tratti migliori' },
       },
-      scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true }, y2: { position: 'right', grid: { display: false } } },
+      // Spazio libero in alto per i segnaposto numerati
+      scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true, grace: '35%' }, y2: { position: 'right', grid: { display: false }, grace: '35%' } },
     },
     plugins: [{
-      id: 'keyNums',
+      // Segnaposto numerati in alto, impilati se vicini, con linea tratteggiata fino alla curva
+      id: 'keyPins',
       afterDatasetsDraw(c) {
-        const ctx = c.ctx;
-        c.data.datasets.forEach((d, di) => {
-          if (!d.keyNums) return;
-          c.getDatasetMeta(di).data.forEach((pt, i) => {
-            const n = d.keyNums[i];
-            if (n == null || d.data[i] == null) return;
-            ctx.save();
-            ctx.fillStyle = d.pointBorderColor; ctx.font = 'bold 11px system-ui, sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(n, pt.x, pt.y + 0.5);
-            ctx.restore();
-          });
-        });
+        const { ctx, chartArea: area, scales } = c;
+        const R = 10, rows = [];
+        for (const k of keys) {
+          const i = at(k.sec);
+          const v = k.series === 'p' ? pw[i] : hr[i];
+          if (v == null) continue;
+          const x = scales.x.getPixelForValue(i);
+          const y = (k.series === 'p' ? scales.y : scales.y2).getPixelForValue(v);
+          let row = 0;
+          while ((rows[row] || []).some(px => Math.abs(px - x) < R * 2 + 4)) row++;
+          (rows[row] ||= []).push(x);
+          const py = area.top + R + 2 + row * (R * 2 + 4);
+          ctx.save();
+          ctx.strokeStyle = pal[k.series]; ctx.globalAlpha = .6; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(x, py + R); ctx.lineTo(x, y); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.setLineDash([]);
+          ctx.fillStyle = pal[k.series];
+          ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = css('--card') || '#fff'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(x, py, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = pal[k.series]; ctx.font = 'bold 11px system-ui, sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(k.n, x, py + .5);
+          ctx.restore();
+        }
       },
     }],
   });
