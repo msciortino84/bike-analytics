@@ -1,7 +1,8 @@
 import { parseFit } from './fit.js';
 import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay, bestEfforts, normalizedPower, powerZones } from './metrics.js';
 import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout } from './intervals.js';
-import { buildAdvice, wellnessStatus, suggestWorkout } from './advice.js';
+import { wellnessStatus, suggestWorkout } from './advice.js';
+import { structuredAdvice } from './coach.js';
 import { renderCalendar, renderEventDetail } from './calendar.js';
 import { fuelPlan, fuelHtml } from './fuel.js';
 
@@ -428,13 +429,20 @@ async function render() {
       In alternativa carica i tuoi file .fit nella scheda Attività.</div>
       <button class="primary" onclick="document.querySelector('[data-tab=set]').click()">Vai alle impostazioni</button>`;
   } else $('workout').innerHTML = `
-    <h2>Allenamento consigliato per oggi</h2>
-    <div class="name">${esc(wo.name)}${wo.minutes ? ` <span class="tag">${wo.minutes}'</span>` : ''}</div>
-    <div>${esc(wo.text)}</div>
-    <div class="hint" style="margin-top:6px">Perché: ${esc(wo.reasons.join(', '))}.</div>
-    ${plannedToday ? `<div class="hint">In calendario oggi hai già: <b>${esc(plannedToday.name)}</b>.</div>` : ''}
-    ${wo.description ? `<pre>${esc(wo.description)}</pre>` : ''}
-    ${wo.description && settings.apiKey ? `<button id="addWo" class="primary">Aggiungi al calendario di oggi su intervals</button>` : ''}`;
+    <details class="wo-box">
+      <summary>
+        <span class="wo-k">Oggi</span>
+        <span class="wo-n">${esc(wo.name)}${wo.minutes ? ` <span class="tag">${wo.minutes}'</span>` : ''}</span>
+        <span class="wo-why">${esc(wo.reasons.join(', '))}</span>
+        <span class="kb-more">Dettagli</span>
+      </summary>
+      <div class="wo-body">
+        <div>${esc(wo.text)}</div>
+        ${plannedToday ? `<div class="hint">In calendario oggi hai già: <b>${esc(cleanName(plannedToday.name))}</b>.</div>` : ''}
+        ${wo.description ? `<pre>${esc(wo.description)}</pre>` : ''}
+        ${wo.description && settings.apiKey ? `<button id="addWo" class="primary">Aggiungi al calendario di oggi su intervals</button>` : ''}
+      </div>
+    </details>`;
   if ($('addWo')) $('addWo').onclick = async () => {
     if (!confirm(`Aggiungere "${wo.name}" al tuo calendario intervals.icu di oggi?`)) return;
     try {
@@ -480,7 +488,11 @@ async function render() {
   const weekStart = startOfDay(R.to) - ((new Date(R.to).getDay() + 6) % 7) * 864e5;
 
   // Consigli
-  $('advice').innerHTML = buildAdvice(acts.length ? p : [], acts, events, wstat).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
+  // Raggruppati per area; i primi due gruppi aperti, gli altri richiudibili
+  $('advice').innerHTML = structuredAdvice(acts.length ? p : [], acts, events, wstat).map((g, gi) => `
+    <details class="adv-group"${gi < 2 ? ' open' : ''}><summary>${g.icon || ''} ${g.title}
+      <span class="adv-dots">${g.items.map(t => `<i class="${t.level}"></i>`).join('')}</span></summary>
+      <ul class="advice">${g.items.map(t => `<li class="${t.level}">${t.text}</li>`).join('')}</ul></details>`).join('');
 
   // PMC
   chart('pmcChart', {
@@ -612,6 +624,45 @@ function showTab(name) {
   window.scrollTo(0, 0);
 }
 $('backBtn').onclick = () => { showTab(backTo.tab); window.scrollTo(0, backTo.scroll); };
+
+// Km in salita/piano/discesa, velocità max e minima in movimento, quote max/min, dagli stream dell'uscita.
+function terrainStats(s) {
+  const out = {};
+  const t = s.time || [], d = s.dist || [], al = s.alt || [];
+  if (d.length > 10 && al.some(v => v != null)) {
+    // Confronta quota e distanza ogni ~100 m: pendenza > +1,5% salita, < -1,5% discesa
+    let up = 0, down = 0, flat = 0, i0 = 0;
+    for (let i = 1; i < d.length; i++) {
+      if (d[i] == null || al[i] == null || d[i0] == null || al[i0] == null) { i0 = i; continue; }
+      const dd = d[i] - d[i0];
+      if (dd < 100) continue;
+      const g = (al[i] - al[i0]) / dd;
+      if (g > 0.015) up += dd; else if (g < -0.015) down += dd; else flat += dd;
+      i0 = i;
+    }
+    out.tipKm = `In salita ${(up / 1000).toFixed(1)} km · in pianura ${(flat / 1000).toFixed(1)} km · in discesa ${(down / 1000).toFixed(1)} km`;
+  }
+  if (d.length > 10 && t.length === d.length) {
+    // Velocità su finestre di 5 s; la minima considera solo i tratti in movimento (> 3 km/h)
+    const sp = [];
+    for (let i = 5; i < d.length; i++) {
+      const dt = t[i] - t[i - 5];
+      if (dt > 0 && dt <= 10 && d[i] != null && d[i - 5] != null) sp.push((d[i] - d[i - 5]) / dt * 3.6);
+    }
+    const mov = sp.filter(v => v > 3 && v < 120).sort((x, y) => x - y);
+    if (mov.length) {
+      const q = p => mov[Math.min(mov.length - 1, Math.floor(mov.length * p))];
+      out.tipSpeed = `Massima ${mov[mov.length - 1].toFixed(1)} km/h · minima in movimento ${q(0.02).toFixed(1)} km/h · mediana ${q(0.5).toFixed(1)} km/h`;
+    }
+  }
+  const alts = al.filter(v => v != null);
+  if (alts.length) {
+    let mx = -Infinity, mn = Infinity;
+    for (const v of alts) { if (v > mx) mx = v; if (v < mn) mn = v; }
+    out.tipAlt = `Altitudine massima ${Math.round(mx)} m · minima ${Math.round(mn)} m`;
+  }
+  return out;
+}
 
 // Mappa Leaflet con il percorso colorato per intensità, partenza/arrivo e momenti chiave.
 let map = null;
@@ -763,6 +814,7 @@ async function openDetail(a) {
   }
   const pct = (x, t) => t ? ` (${Math.round(x / t * 100)}%)` : '';
   const tipDur = `Tempo totale ${fmtDur(elapsed)} · in movimento ${fmtDur(a.movingTime)} · pause ${fmtDur(pause)}${pct(pause, elapsed)}`;
+  const terrain = terrainStats(s);
   const tipCad = s.cad?.length ? `Pedalando ${fmtDur(pedal)} · senza pedalare ${fmtDur(coast)}${pct(coast, pedal + coast)}` : null;
   const maxHr = hrs.length ? Math.max(...hrs) : null;
   const maxP = hasPower ? Math.max(...power) : null;
@@ -771,8 +823,8 @@ async function openDetail(a) {
   const speed = a.movingTime ? (a.distance / a.movingTime) * 3.6 : 0;
   $('dKpis').innerHTML = [
     // Ordinati per categoria: percorso, carico, potenza, battito, cadenza
-    ['Durata', fmtDur(a.movingTime), 'time', tipDur], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time'],
-    ['Dislivello', `${Math.round(a.ascent || 0)} m`, 'time'], ['Velocità media', `${speed.toFixed(1)} km/h`, 'time'],
+    ['Durata', fmtDur(a.movingTime), 'time', tipDur], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time', terrain.tipKm],
+    ['Dislivello', `${Math.round(a.ascent || 0)} m`, 'time', terrain.tipAlt], ['Velocità media', `${speed.toFixed(1)} km/h`, 'time', terrain.tipSpeed],
     ['TSS', a.tss ?? '–', 'load'], ['IF', a.ifactor ?? '–', 'load'],
     ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–', 'power'], ['NP', np ? `${np} W` : '–', 'power'],
     ['Potenza max', maxP ? `${maxP} W` : '–', 'power'], ...(vi ? [['Variabilità (VI)', vi, 'power']] : []),

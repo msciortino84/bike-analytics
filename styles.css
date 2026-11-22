@@ -254,7 +254,10 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 @media (max-width: 420px) { .kb-nums .num:nth-child(n+5) { display: none; } }
 
 /* Barra date su telefono: fissa in alto (sotto la barra di stato dell'iPhone) e compatta mentre si scorre */
-.range-bar { padding-top: calc(8px + env(safe-area-inset-top)); margin-top: calc(-4px - env(safe-area-inset-top)); background: var(--bg); }
+.range-bar { background: var(--bg); }
+/* Il margine per la barra di stato dell'iPhone serve solo quando la barra è attaccata in alto:
+   prima tirava la barra sopra il menu, nascondendolo */
+.range-bar.stuck { padding-top: calc(8px + env(safe-area-inset-top)); }
 .range-sentinel { height: 1px; }
 @media (max-width: 700px) {
   .range-bar { gap: 6px; padding-bottom: 8px; margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
@@ -298,3 +301,27 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 .fz span { font-size: 12px; color: var(--muted); } .fz b { font-size: 18px; color: var(--c); font-variant-numeric: tabular-nums; } .fz small { font-size: 11.5px; color: var(--muted); }
 .fz.cho { --c: #d98a00; } .fz.fl { --c: #2bb5c4; } .fz.na { --c: #8891a0; } .fz.kc { --c: #d64545; }
 .fuel ul { margin: 10px 0 6px; padding-left: 18px; font-size: 14px; } .fuel li { margin-bottom: 5px; }
+
+/* Allenamento consigliato: chiuso mostra solo l'avviso */
+.card.workout { padding: 10px 14px; }
+.wo-box > summary { list-style: none; display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "k n m" "k w m"; gap: 0 10px; align-items: center; cursor: pointer; }
+.wo-box > summary::-webkit-details-marker { display: none; }
+.wo-k { grid-area: k; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #fff; background: var(--accent); border-radius: 6px; padding: 4px 7px; }
+.wo-n { grid-area: n; font-weight: 700; font-size: 16px; }
+.wo-why { grid-area: w; font-size: 12.5px; color: var(--muted); }
+.wo-box .kb-more { grid-area: m; }
+.wo-box[open] .kb-more { font-size: 0; }
+.wo-box[open] .kb-more::after { content: "Chiudi ▴"; font-size: 13px; }
+.wo-body { margin-top: 10px; }
+
+/* Consigli raggruppati per area */
+.adv-group { border-top: 1px solid var(--line); padding: 8px 0 4px; }
+.adv-group:first-child { border-top: 0; padding-top: 0; }
+.adv-group > summary { list-style: none; cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.adv-group > summary::-webkit-details-marker { display: none; }
+.adv-group > summary::after { content: "▾"; color: var(--muted); font-size: 12px; }
+.adv-group[open] > summary::after { content: "▴"; }
+.adv-dots { margin-left: auto; display: flex; gap: 3px; }
+.adv-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.adv-dots i.good { background: var(--good); } .adv-dots i.ok { background: var(--ok); } .adv-dots i.bad { background: var(--bad); }
+.adv-group .advice { margin-top: 6px; }
