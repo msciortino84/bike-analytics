@@ -372,12 +372,13 @@ async function drawRadars(R, ra, acts) {
       layout: { padding: 6 },
       scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 24, font: { size: 11, weight: '700' }, color: c => HR_COLORS[c.index] || css('--text'),
-          callback: (l, i) => [l, `${zc[i] || 0} h · ${Math.round((zc[i] || 0) / tot * 100)}%`] } } },
+          // Su telefono solo sigla e ore, il nome della fascia resta nel fumetto
+          callback: (l, i) => (innerWidth < 700 ? [`Z${i + 1}`, `${zc[i] || 0} h`] : [l, `${zc[i] || 0} h · ${Math.round((zc[i] || 0) / tot * 100)}%`]) } } },
       // Raggio = radice delle ore: la Z1 (molte ore) non schiaccia le zone alte
       plugins: {
         // Un arco colorato per ogni fascia cardiaca
         radarArcs: { groups: Array.from({ length: nZ }, (_, i) => ({ from: i, to: i, color: HR_COLORS[i] })) },
-        tooltip: { callbacks: { label: t => `${t.dataset.label}: ${(t.datasetIndex ? zc : zp)[t.dataIndex] || 0} h${lims[t.dataIndex] ? ` (fino a ${lims[t.dataIndex]} bpm)` : ''}` } },
+        tooltip: { callbacks: { title: t => t[0].label, label: t => `${t.dataset.label}: ${(t.datasetIndex ? zc : zp)[t.dataIndex] || 0} h${lims[t.dataIndex] ? ` (fino a ${lims[t.dataIndex]} bpm)` : ''}` } },
       },
     },
     plugins: [radarArcs],
