@@ -42,7 +42,9 @@ export async function fetchActivities(settings, days = 365) {
       tss: a.icu_training_load ?? null,
       ifactor: a.icu_intensity != null ? +(a.icu_intensity / 100).toFixed(2) : null,
       curve: {},
-      zones: [],
+      // Secondi in Z1..Z7 di potenza (la voce "SS" sweet spot di intervals è esclusa: si sovrappone a Z3-Z4)
+      zones: ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7'].map(z => (a.icu_zone_times || []).find(t => t.id === z)?.secs || 0),
+      hrZones: a.icu_hr_zone_times || [],
     }));
 }
 

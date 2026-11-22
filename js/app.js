@@ -93,7 +93,9 @@ $('syncBtn').onclick = async () => {
     settings = { ...settings, ftp: ath.ftp || settings.ftp, lthr: ath.lthr || settings.lthr, weight: ath.weight || settings.weight };
     saveSettings(settings); fillSettings();
     const [acts, events, curve] = await Promise.all([fetchActivities(settings), fetchEvents(settings), fetchPowerCurve(settings)]);
-    for (const a of acts) await putAct(a);
+    // Mantiene gli stream già scaricati per il dettaglio, così non vanno riscaricati.
+    const prev = new Map((await getAll()).map(a => [a.id, a]));
+    for (const a of acts) await putAct(prev.get(a.id)?.streams ? { ...a, streams: prev.get(a.id).streams } : a);
     await kvSet('events', events);
     await kvSet('curve', curve);
     await kvSet('wellness', await fetchWellness(settings).catch(() => []));
