@@ -71,14 +71,17 @@
     </section>
 
     <section id="tab-set" class="tab">
-      <div class="card">
+      <!-- Un vero form di "accesso": così Safari/Chrome propongono di salvare ID e chiave nel portachiavi
+           (iCloud o Google) e li compilano da soli su ogni dispositivo. -->
+      <form class="card" id="loginForm" action="#" autocomplete="on">
         <h2>intervals.icu</h2>
-        <p class="hint">Genera la chiave in intervals.icu → Settings → Developer Settings. L'ID atleta (es. i12345) è nella stessa pagina. La chiave resta salvata solo su questo dispositivo.</p>
-        <label>ID atleta <input id="athleteId" placeholder="i12345"></label>
-        <label>Chiave API <input id="apiKey" type="password" autocomplete="off"></label>
-        <label>Proxy (opzionale) <input id="proxyUrl" placeholder="https://...workers.dev/api/v1"></label>
-        <button id="saveSettings" class="primary">Salva</button>
-      </div>
+        <p class="hint">Genera la chiave in intervals.icu → Settings → Developer Settings. L'ID atleta (es. i12345) è nella stessa pagina.
+          Premendo <b>Accedi</b> il browser ti propone di salvarli come password: accetta, e sugli altri dispositivi li compila da solo.</p>
+        <label>ID atleta <input id="athleteId" name="username" autocomplete="username" placeholder="i12345" autocapitalize="off" autocorrect="off"></label>
+        <label>Chiave API <input id="apiKey" name="password" type="password" autocomplete="current-password"></label>
+        <label>Proxy (opzionale) <input id="proxyUrl" autocomplete="off" placeholder="https://...workers.dev/api/v1"></label>
+        <button id="saveSettings" type="submit" class="primary">Accedi e sincronizza</button>
+      </form>
       <div class="card">
         <h2>Soglie</h2>
         <p class="hint">Si aggiornano da intervals a ogni sincronizzazione. Servono per i file FIT caricati a mano.</p>

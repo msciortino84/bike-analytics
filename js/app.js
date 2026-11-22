@@ -64,12 +64,20 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 function fillSettings() {
   for (const k of ['athleteId', 'apiKey', 'proxyUrl', 'ftp', 'lthr', 'weight']) $(k).value = settings[k] ?? '';
 }
-$('saveSettings').onclick = () => {
+function storeLogin() {
   settings = { ...settings, athleteId: $('athleteId').value.trim(), apiKey: $('apiKey').value.trim(), proxyUrl: $('proxyUrl').value.trim() };
-  saveSettings(settings); status('Impostazioni salvate.');
-};
-// Salvataggio automatico appena scrivi, anche senza premere "Salva".
-for (const k of ['athleteId', 'apiKey', 'proxyUrl']) $(k).addEventListener('change', () => $('saveSettings').click());
+  saveSettings(settings);
+}
+// Invio del form: il browser lo vede come un accesso e propone di salvare la password.
+$('loginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  storeLogin();
+  if (!settings.apiKey) { status('Inserisci la chiave API.'); return; }
+  document.querySelector('[data-tab=dash]').click();
+  $('syncBtn').click();
+});
+// Salvataggio automatico appena scrivi (anche quando il portachiavi compila i campi).
+for (const k of ['athleteId', 'apiKey', 'proxyUrl']) $(k).addEventListener('change', storeLogin);
 $('saveThresholds').onclick = () => {
   settings = { ...settings, ftp: +$('ftp').value || null, lthr: +$('lthr').value || null, weight: +$('weight').value || null };
   saveSettings(settings); status('Soglie salvate.'); render();
@@ -177,7 +185,12 @@ async function render() {
   // Allenamento del giorno
   const wo = suggestWorkout(p, acts, events, wstat);
   const plannedToday = events.find(e => e.category === 'WORKOUT' && startOfDay(e.date) === startOfDay(Date.now()));
-  $('workout').innerHTML = `
+  if (!acts.length) {
+    $('workout').innerHTML = `<h2>Benvenuto</h2>
+      <div>Per iniziare vai in <b>Impostazioni</b>, inserisci ID atleta e chiave di intervals.icu e premi <b>Accedi e sincronizza</b>.
+      In alternativa carica i tuoi file .fit nella scheda Attività.</div>
+      <button class="primary" onclick="document.querySelector('[data-tab=set]').click()">Vai alle impostazioni</button>`;
+  } else $('workout').innerHTML = `
     <h2>Allenamento consigliato per oggi</h2>
     <div class="name">${esc(wo.name)}${wo.minutes ? ` <span class="tag">${wo.minutes}'</span>` : ''}</div>
     <div>${esc(wo.text)}</div>
@@ -220,7 +233,7 @@ async function render() {
   ].map(kpi).join('');
 
   // Consigli
-  $('advice').innerHTML = buildAdvice(p, acts, events, wstat).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
+  $('advice').innerHTML = buildAdvice(acts.length ? p : [], acts, events, wstat).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
 
   // PMC
   chart('pmcChart', {
