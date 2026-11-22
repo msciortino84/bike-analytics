@@ -354,7 +354,8 @@ const tint = (hex, k) => { // k = 1 colore pieno, k < 1 schiarito verso il bianc
 // Riempimento a spicchi sfumati: ogni asse prende il colore della zona in cui cade il suo valore
 function zoneConic(ctx, watts, k) {
   const c = ctx.chart, sc = c.scales.r;
-  if (!sc || !c.ctx.createConicGradient) return tint(ZONE_COLORS[4], k);
+  // Prima del calcolo delle misure il centro non esiste ancora: colore di ripiego
+  if (!sc || !c.ctx.createConicGradient || !Number.isFinite(sc.xCenter) || !Number.isFinite(sc.yCenter)) return tint(ZONE_COLORS[3], k);
   const n = watts.length, g = c.ctx.createConicGradient(-Math.PI / 2, sc.xCenter, sc.yCenter);
   watts.forEach((w, i) => g.addColorStop(i / n, tint(zoneOf(w).color, k)));
   g.addColorStop(1, tint(zoneOf(watts[0]).color, k));
