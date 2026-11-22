@@ -330,8 +330,8 @@ async function drawRadars(R, ra, acts) {
   chart('radarPower', {
     type: 'radar',
     data: { labels: RADAR_SECS.map(secLbl), datasets: [
-      { label: 'Di sempre', data: allV.map(pct), backgroundColor: '#9b5de5cc', borderColor: '#7b3fbf', borderWidth: 1, pointRadius: 0 },
-      { label: 'Periodo', data: perV.map(pct), backgroundColor: '#f6a8deee', borderColor: '#d96ac0', borderWidth: 1, pointRadius: 2, pointBackgroundColor: '#fff' },
+      { label: 'Di sempre', data: allV.map(pct), backgroundColor: '#9b5de5cc', borderColor: '#7b3fbf', borderWidth: 1, pointRadius: 0, order: 2 },
+      { label: 'Periodo', data: perV.map(pct), backgroundColor: '#f6a8deee', borderColor: '#d96ac0', borderWidth: 1, pointRadius: 2, pointBackgroundColor: '#fff', order: 1 }, // order basso = disegnato sopra
     ] },
     options: {
       layout: { padding: 6 },
@@ -363,7 +363,7 @@ async function drawRadars(R, ra, acts) {
   chart('radarHr', {
     type: 'radar',
     data: { labels: Array.from({ length: nZ }, (_, i) => `Z${i + 1} ${IT[names[i]] || names[i] || ''}`.trim()), datasets: [
-      { label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zp[i] || 0)), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
+      { order: 2, label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zp[i] || 0)), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
       { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zc[i] || 0)), backgroundColor: '#ef6b6bbb', borderColor: '#d64545', borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: '#fff' },
     ] },
     options: {
