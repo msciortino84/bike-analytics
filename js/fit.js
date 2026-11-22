@@ -62,6 +62,8 @@ export function parseFit(buffer) {
       records.push({
         t: v[253] != null ? (v[253] + FIT_EPOCH) * 1000 : null,
         hr: v[3] ?? null,
+        lat: v[0] != null ? v[0] * (180 / 2 ** 31) : null, // semicerchi → gradi
+        lng: v[1] != null ? v[1] * (180 / 2 ** 31) : null,
         cad: v[4] ?? null,
         power: v[7] ?? null,
         speed: v[73] != null ? v[73] / 1000 : v[6] != null ? v[6] / 1000 : null, // m/s

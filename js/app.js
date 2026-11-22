@@ -151,6 +151,7 @@ async function importFiles(files) {
         const streams = {
           time: rs.map(r => Math.round((r.t - t0) / 1000)), power: rs.map(r => r.power), hr: rs.map(r => r.hr),
           alt: rs.map(r => r.alt), dist: rs.map(r => r.dist), cad: rs.map(r => r.cad),
+          lat: rs.map(r => r.lat), lng: rs.map(r => r.lng), v: 2,
         };
         await putAct({ ...a, id: 'fit-' + a.date, source: 'fit', name: f.name.replace(/\.fit$/i, ''), streams });
         ok++;
@@ -183,6 +184,146 @@ const drop = $('drop');
 drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); importFiles([...e.dataTransfer.files]); };
+
+// ---------- Schede attività ----------
+const ZONE_COLORS = ['#8891a0', '#2f6fde', '#1f9d55', '#d98a00', '#e0662b', '#d64545', '#7b3fbf'];
+const cleanName = n => String(n || '').replace(/^(MyWhoosh\s*-\s*)?\d{4}-\d{2}-\d{2}\s*-?\s*/, (m, p) => (p ? 'MyWhoosh · ' : ''));
+
+function activityCards(list, all) {
+  // Media delle 20 uscite precedenti: base per le frecce ▲▼
+  const asc = [...all].sort((a, b) => a.date - b.date);
+  const base = new Map();
+  const KEYS = ['movingTime', 'distance', 'ascent', 'tss', 'np', 'avgHr'];
+  for (let i = 0; i < asc.length; i++) {
+    const prev = asc.slice(Math.max(0, i - 20), i);
+    const avg = {};
+    for (const k of KEYS) { const v = prev.map(a => a[k]).filter(x => x > 0); avg[k] = v.length >= 5 ? v.reduce((s, x) => s + x, 0) / v.length : null; }
+    base.set(asc[i].id, avg);
+  }
+  // Record: il migliore dell'anno solare e degli ultimi 90 giorni
+  const badges = new Map();
+  const award = (pool, key, text) => {
+    const top = pool.filter(a => a[key] > 0).reduce((m, a) => (!m || a[key] > m[key] ? a : m), null);
+    if (top) (badges.get(top.id) || badges.set(top.id, []).get(top.id)).push(text);
+  };
+  const year = new Date().getFullYear();
+  const thisYear = all.filter(a => new Date(a.date).getFullYear() === year);
+  const last90 = all.filter(a => a.date > Date.now() - 90 * 864e5);
+  award(thisYear, 'distance', `📏 Più lunga del ${year}`);
+  award(thisYear, 'ascent', `⛰️ Più dislivello del ${year}`);
+  award(thisYear, 'movingTime', `⏱️ Più ore del ${year}`);
+  award(last90, 'tss', '🔥 Carico più alto (90 gg)');
+  award(last90, 'np', '⚡ NP più alta (90 gg)');
+
+  const arrow = (v, b, unit = '') => {
+    if (!v || !b) return '';
+    const d = (v - b) / b;
+    if (Math.abs(d) < 0.15) return '';
+    return `<i class="${d > 0 ? 'up' : 'down'}" title="${d > 0 ? '+' : ''}${Math.round(d * 100)}% rispetto alla media delle ultime 20 uscite${unit}">${d > 0 ? '▲' : '▼'}</i>`;
+  };
+  let html = '', curMonth = '';
+  const monthStats = {};
+  for (const a of list) {
+    const k = new Date(a.date).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    (monthStats[k] ||= { n: 0, km: 0, h: 0 }); monthStats[k].n++; monthStats[k].km += (a.distance || 0) / 1000; monthStats[k].h += a.movingTime || 0;
+  }
+  for (const a of list) {
+    const m = new Date(a.date).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    if (m !== curMonth) {
+      if (curMonth) html += '</div>';
+      const st = monthStats[m];
+      html += `<div class="act-month"><b>${m}</b><span>${st.n} uscite · ${Math.round(st.km)} km · ${fmtDur(st.h)}</span></div><div class="act-grid">`;
+      curMonth = m;
+    }
+    const b = base.get(a.id) || {};
+    const zt = (a.zones || []).reduce((s, x) => s + x, 0);
+    const metric = (label, val, key, cls) => val ? `<div class="am ${cls}"><b>${val}${arrow(a[key], b[key])}</b><span>${label}</span></div>` : '';
+    const bd = badges.get(a.id) || [];
+    const d = new Date(a.date);
+    html += `<div class="act-card click${bd.length ? ' star' : ''}" data-open="${a.id}">
+      <div class="ac-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('it-IT', { weekday: 'short' })}</span></div>
+      <div class="ac-body">
+        <div class="ac-title">${esc(cleanName(a.name))}<button class="ac-del" data-del="${a.id}" title="Elimina dallo storico locale" aria-label="Elimina">✕</button></div>
+        ${bd.length ? `<div class="ac-badges">${bd.map(t => `<span>${t}</span>`).join('')}</div>` : ''}
+        <div class="ac-metrics">
+          ${metric('durata', fmtDur(a.movingTime), 'movingTime', 'c-time')}
+          ${metric('km', (a.distance / 1000).toFixed(1), 'distance', 'c-time')}
+          ${metric('D+', a.ascent ? Math.round(a.ascent) + ' m' : '', 'ascent', 'c-time')}
+          ${metric('TSS', a.tss, 'tss', 'c-load')}
+          ${metric('NP', a.np ? a.np + ' W' : '', 'np', 'c-power')}
+          ${metric('FC', a.avgHr ? a.avgHr + ' bpm' : '', 'avgHr', 'c-hr')}
+        </div>
+        ${zt ? `<div class="ac-zones" title="Tempo nelle zone di potenza">${a.zones.map((s, i) => s ? `<i style="flex:${s};background:${ZONE_COLORS[i]}"></i>` : '').join('')}</div>` : ''}
+      </div>
+    </div>`;
+  }
+  return html + '</div>';
+}
+
+// ---------- Progresso annuale ----------
+function yearProgress(acts) {
+  const now = new Date(), y = now.getFullYear();
+  const startY = new Date(y, 0, 1).getTime(), startPrev = new Date(y - 1, 0, 1).getTime();
+  const dayOfYear = Math.floor((startOfDay(now.getTime()) - startY) / 864e5) + 1;
+  const sameDayPrev = startPrev + dayOfYear * 864e5; // stessa data dell'anno scorso
+  const tot = list => ({ km: list.reduce((s, a) => s + (a.distance || 0), 0) / 1000, h: list.reduce((s, a) => s + (a.movingTime || 0), 0),
+    up: list.reduce((s, a) => s + (a.ascent || 0), 0), n: list.length, tss: list.reduce((s, a) => s + (a.tss || 0), 0) });
+  const cur = tot(acts.filter(a => a.date >= startY));
+  const prevYtd = tot(acts.filter(a => a.date >= startPrev && a.date < sameDayPrev));
+  const prevAll = tot(acts.filter(a => a.date >= startPrev && a.date < startY));
+  const goal = settings.yearGoal || Math.round(prevAll.km / 100) * 100 || 5000;
+  const daysInYear = (new Date(y + 1, 0, 1) - startY) / 864e5;
+  const pace = goal * dayOfYear / daysInYear;
+  const diff = cur.km - pace;
+  const pct = x => Math.min(100, (x / goal) * 100);
+  const delta = (a, b, fmt) => {
+    if (!b) return '';
+    const d = (a - b) / b;
+    return `<span class="${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(d * 100))}%</span><small>${y - 1}: ${fmt(b)}</small>`;
+  };
+  const fmtKm = v => `${Math.round(v).toLocaleString('it-IT')} km`;
+  const fmtUp = v => `${Math.round(v).toLocaleString('it-IT')} m`;
+  $('yearCard').innerHTML = `
+    <div class="yp-head"><h2>Quest'anno · ${y}</h2>
+      <button class="yp-goal" id="ypGoal" title="Cambia obiettivo">🎯 obiettivo ${goal.toLocaleString('it-IT')} km</button></div>
+    <div class="yp-main"><b>${cur.km.toLocaleString('it-IT', { maximumFractionDigits: 1 })} km</b><span>/ ${goal.toLocaleString('it-IT')} km</span></div>
+    <div class="yp-bar">
+      <div class="yp-prev" style="width:${pct(prevYtd.km)}%" title="${y - 1} alla stessa data: ${fmtKm(prevYtd.km)}"></div>
+      <div class="yp-fill" style="width:${pct(cur.km)}%"></div>
+      <div class="yp-today" style="left:${pct(pace)}%"><span>OGGI</span></div>
+    </div>
+    <div class="yp-pace ${diff >= 0 ? 'pos' : 'neg'}">${Math.abs(diff).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km ${diff >= 0 ? 'in più' : 'in meno'} rispetto al passo</div>
+    <div class="yp-cmp">
+      <div><span>Km</span><b>${fmtKm(cur.km)}</b>${delta(cur.km, prevYtd.km, fmtKm)}</div>
+      <div><span>Ore</span><b>${fmtDur(cur.h)}</b>${delta(cur.h, prevYtd.h, fmtDur)}</div>
+      <div><span>Dislivello</span><b>${fmtUp(cur.up)}</b>${delta(cur.up, prevYtd.up, fmtUp)}</div>
+      <div><span>Uscite</span><b>${cur.n}</b>${delta(cur.n, prevYtd.n, v => v)}</div>
+    </div>
+    <div class="hint">Confronto con il ${y - 1} alla stessa data (${new Date(sameDayPrev - 864e5).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}). La barra chiara è dove eri l'anno scorso.</div>
+    <div class="chart small"><canvas id="ypChart"></canvas></div>`;
+  $('ypGoal').onclick = () => {
+    const v = prompt('Obiettivo km per quest\'anno:', goal);
+    if (v && +v > 0) { settings = { ...settings, yearGoal: Math.round(+v) }; saveSettings(settings); render(); }
+  };
+  // Km progressivi giorno per giorno: quest'anno vs anno scorso
+  const cum = (from, days) => {
+    const byDay = new Array(days).fill(0);
+    for (const a of acts) { const i = Math.floor((startOfDay(a.date) - from) / 864e5); if (i >= 0 && i < days) byDay[i] += (a.distance || 0) / 1000; }
+    let s = 0; return byDay.map(v => Math.round((s += v)));
+  };
+  const prevDays = Math.round((startY - startPrev) / 864e5);
+  const labels = Array.from({ length: prevDays }, (_, i) => new Date(startY + i * 864e5).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }));
+  const curCum = cum(startY, dayOfYear);
+  chart('ypChart', {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: String(y), data: curCum, borderColor: '#2bb5c4', backgroundColor: '#2bb5c422', fill: true, pointRadius: 0, borderWidth: 2.5 },
+      { label: String(y - 1), data: cum(startPrev, prevDays), borderColor: '#8891a0', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5 },
+      { label: 'Passo obiettivo', data: labels.map((_, i) => Math.round(goal * (i + 1) / daysInYear)), borderColor: '#d98a0088', pointRadius: 0, borderWidth: 1 },
+    ] },
+    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 12 } } } },
+  });
+}
 
 // ---------- Intervallo di date della dashboard ----------
 const PRESETS = { '4w': 28, '3m': 91, '6m': 182, '1y': 365, ytd: 'ytd', all: 'all' };
@@ -383,15 +524,12 @@ async function render() {
     options: { indexAxis: 'y', plugins: { legend: { display: false } } },
   });
 
+  // Progresso annuale (sempre sull'anno solare, indipendente dal periodo)
+  $('yearCard').hidden = !acts.length;
+  if (acts.length) yearProgress(acts);
+
   // Storico
-  $('actList').innerHTML = acts.length ? acts.slice(0, 300).map(a => `
-    <div class="row click" data-open="${a.id}">
-      <div><div class="t">${esc(a.name)}<span class="tag">${a.source}</span></div>
-        <div class="s">${fmtDate(a.date)} · ${fmtDur(a.movingTime)} · ${(a.distance / 1000).toFixed(1)} km · ${Math.round(a.ascent || 0)} m</div></div>
-      <div class="r"><div>${a.tss != null ? a.tss + ' TSS' : ''}</div>
-        <div class="s">${a.np ? 'NP ' + a.np + ' W' : a.avgPower ? a.avgPower + ' W' : ''}${a.avgHr ? ' · ' + a.avgHr + ' bpm' : ''}${a.ifactor ? ' · IF ' + a.ifactor : ''}</div>
-        <button data-del="${a.id}">Elimina</button></div>
-    </div>`).join('') : '<p class="hint">Nessuna attività. Sincronizza da intervals.icu o carica un file.</p>';
+  $('actList').innerHTML = acts.length ? activityCards(acts.slice(0, 300), acts) : '<p class="hint">Nessuna attività. Sincronizza da intervals.icu o carica un file.</p>';
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = async e => {
     e.stopPropagation();
     if (confirm('Eliminare questa attività dallo storico locale?')) { await delAct(b.dataset.del); render(); }
@@ -430,6 +568,39 @@ function showTab(name) {
   window.scrollTo(0, 0);
 }
 $('backBtn').onclick = () => { showTab(backTo.tab); window.scrollTo(0, backTo.scroll); };
+
+// Mappa Leaflet con il percorso colorato per intensità, partenza/arrivo e momenti chiave.
+let map = null;
+function drawMap(s, keys) {
+  const card = $('dMapCard');
+  const pts = [];
+  const lat = s.lat || [], lng = s.lng || [];
+  for (let i = 0; i < lat.length; i++) if (lat[i] && lng[i]) pts.push([lat[i], lng[i], i]);
+  card.hidden = pts.length < 2 || typeof L === 'undefined';
+  if (card.hidden) return;
+  if (map) { map.remove(); map = null; }
+  map = L.map('dMap', { scrollWheelZoom: false, attributionControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map);
+  // Al massimo ~1500 punti: leggero anche su telefono
+  const every = Math.max(1, Math.floor(pts.length / 1500));
+  const line = pts.filter((_, i) => i % every === 0).map(p => [p[0], p[1]]);
+  L.polyline(line, { color: '#ffffff', weight: 7, opacity: .9 }).addTo(map);
+  L.polyline(line, { color: '#7b3fbf', weight: 4 }).addTo(map);
+  const dot = (p, color, title) => L.circleMarker([p[0], p[1]], { radius: 7, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).bindTooltip(title).addTo(map);
+  dot(pts[0], '#1f9d55', 'Partenza');
+  dot(pts[pts.length - 1], '#d64545', 'Arrivo');
+  // Numeri dei momenti chiave anche sulla mappa
+  for (const k of keys || []) {
+    const sec = Math.round(k.sec);
+    const p = pts.reduce((best, q) => (Math.abs((s.time[q[2]] ?? q[2]) - sec) < Math.abs((s.time[best[2]] ?? best[2]) - sec) ? q : best), pts[0]);
+    L.marker([p[0], p[1]], { icon: L.divIcon({ className: 'map-pin', html: `<span>${k.n}</span>`, iconSize: [22, 22] }) })
+      .bindTooltip(`${k.title} · ${k.value}`).addTo(map);
+  }
+  map.fitBounds(L.latLngBounds(line), { padding: [20, 20] });
+  setTimeout(() => map && map.invalidateSize(), 50);
+}
 
 // Riporta uno stream a 1 valore al secondo.
 function resample(time, values) {
@@ -500,7 +671,8 @@ async function openDetail(a) {
   $('dTitle').textContent = `${a.name} · ${fmtDate(a.date)}`;
   $('dBest').innerHTML = '<p class="hint">Caricamento…</p>';
   let s = a.streams;
-  if (!s && a.source === 'intervals') {
+  // v2 = stream con coordinate GPS: quelli salvati prima vanno riscaricati una volta
+  if (a.source === 'intervals' && (!s || s.v !== 2)) {
     try {
       s = await fetchStreams(settings, a.id);
       await putAct({ ...a, streams: s }); // salvato: la prossima volta si apre subito, anche offline
@@ -572,12 +744,19 @@ async function openDetail(a) {
   }
   keys.sort((a, b) => a.sec - b.sec).forEach((k, i) => (k.n = i + 1));
 
+  const altS = downsample(rolling(altSec, 30, true), N);
+  const altVals = altS.filter(v => v != null);
+  const altMin = altVals.length ? Math.min(...altVals) : 0, altMax = altVals.length ? Math.max(...altVals) : 1;
+
   // Evidenzia sulla potenza i tratti dei migliori sforzi
   const highlight = pw.map((_, i) => (keys.some(k => k.from != null && k.from <= i * step && i * step <= k.to) ? pw[i] : null));
   const pal = { p: '#7b3fbf', h: '#d64545' };
   chart('dPowerChart', {
     type: 'line',
     data: { labels, datasets: [
+      // Altimetria in sottofondo, su un asse nascosto (order alto = disegnata dietro)
+      ...(altS.some(v => v != null) ? [{ label: 'Altimetria', data: altS.map(v => v != null ? Math.round(v) : null), yAxisID: 'y3', order: 10,
+        borderColor: '#8891a066', backgroundColor: '#8891a01f', fill: 'start', pointRadius: 0, borderWidth: 1, tension: .4, spanGaps: true }] : []),
       ...(hasPower ? [
         { label: `Potenza (W, media ${win < 60 ? win + '″' : Math.round(win / 60) + '′'})`, data: pw.map(x => x != null ? Math.round(x) : null), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf1c', fill: true, pointRadius: 0, borderWidth: 2, tension: .4, cubicInterpolationMode: 'monotone' },
         { label: 'Tratti migliori', data: highlight, borderColor: 'transparent', backgroundColor: '#7b3fbf55', fill: 'origin', pointRadius: 0, tension: .4, spanGaps: false },
@@ -593,7 +772,9 @@ async function openDetail(a) {
         tooltip: { filter: t => t.dataset.label !== 'Tratti migliori' },
       },
       // Spazio libero in alto per i segnaposto numerati
-      scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true, grace: '35%' }, y2: { position: 'right', grid: { display: false }, grace: '35%' } },
+      scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true, grace: '35%' }, y2: { position: 'right', grid: { display: false }, grace: '35%' },
+        // L'altimetria occupa al massimo i 2/3 inferiori, per non coprire le curve
+        y3: { display: false, min: altMin, max: altMin + (altMax - altMin) * 1.6 || 1 } },
     },
     plugins: [{
       // Segnaposto numerati in alto, impilati se vicini, con linea tratteggiata fino alla curva
@@ -631,15 +812,8 @@ async function openDetail(a) {
     <div class="key"><span class="num" style="--c:${pal[k.series]}">${k.n}</span>
       <div><b>${k.title}</b> · ${k.value}<div class="s">a ${fmtDur(k.sec)}</div></div></div>`).join('') : '';
 
-  // Altimetria sulla distanza
-  const pts = s.time.map((_, i) => ({ d: s.dist?.[i], h: s.alt?.[i] })).filter(p => p.d != null && p.h != null);
-  const every = Math.max(1, Math.floor(pts.length / N));
-  const alt = pts.filter((_, i) => i % every === 0);
-  chart('dAltChart', {
-    type: 'line',
-    data: { labels: alt.map(p => (p.d / 1000).toFixed(1) + ' km'), datasets: [{ label: 'Altitudine (m)', data: alt.map(p => Math.round(p.h)), borderColor: '#1f9d55', backgroundColor: '#1f9d5533', fill: true, pointRadius: 0, borderWidth: 1.5 }] },
-    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } },
-  });
+  // Mappa del percorso
+  drawMap(s, keys);
 
   // Migliori sforzi, con confronto ai record degli ultimi 90 giorni
   const lbl = d => (d < 60 ? `${d}s` : `${d / 60}'`);

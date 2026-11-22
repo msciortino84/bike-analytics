@@ -78,9 +78,11 @@ export async function fetchWellness(settings, days = 180) {
 // Stream secondo per secondo di una singola attività.
 export async function fetchStreams(settings, activityId) {
   const id = String(activityId).replace(/^icu-/, '');
-  const list = await callRaw(settings, `/activity/${id}/streams?types=time,watts,heartrate,altitude,distance,cadence`);
+  const list = await callRaw(settings, `/activity/${id}/streams?types=time,watts,heartrate,altitude,distance,cadence,latlng`);
   const get = t => list.find(s => s.type === t)?.data || [];
-  return { time: get('time'), power: get('watts'), hr: get('heartrate'), alt: get('altitude'), dist: get('distance'), cad: get('cadence') };
+  const ll = list.find(s => s.type === 'latlng');
+  return { time: get('time'), power: get('watts'), hr: get('heartrate'), alt: get('altitude'), dist: get('distance'), cad: get('cadence'),
+    lat: ll?.data || [], lng: ll?.data2 || [], v: 2 };
 }
 
 // Crea un allenamento pianificato nel calendario di intervals.

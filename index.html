@@ -13,6 +13,8 @@
   <title>Bike Analytics</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 </head>
 <body>
   <header>
@@ -44,6 +46,7 @@
       <div class="kpis" id="kpis"></div>
       <div class="card workout" id="workout"></div>
       <div class="card"><h2>Consigli</h2><ul id="advice" class="advice"></ul></div>
+      <div class="card year" id="yearCard" hidden></div>
       <div class="card" id="wellCard" hidden><h2>Recupero: HRV, sonno e FC a riposo</h2><div class="chart"><canvas id="wellChart"></canvas></div></div>
       <div class="card"><h2>Fitness · Fatica · Forma</h2><div class="chart"><canvas id="pmcChart"></canvas></div></div>
       <div class="grid2">
@@ -72,7 +75,7 @@
       <button id="backBtn">← Storico</button>
       <div class="card"><h2 id="dTitle"></h2><div class="kpis" id="dKpis"></div></div>
       <div class="card"><h2>Potenza e battito</h2><div class="chart tall"><canvas id="dPowerChart"></canvas></div><div id="dKeys" class="keys"></div></div>
-      <div class="card"><h2>Altimetria</h2><div class="chart"><canvas id="dAltChart"></canvas></div></div>
+      <div class="card" id="dMapCard" hidden><h2>Percorso</h2><div id="dMap" class="map"></div></div>
       <div class="grid2">
         <div class="card"><h2>Migliori sforzi</h2><div id="dBest"></div></div>
         <div class="card"><h2>Tempo nelle zone</h2><div class="chart"><canvas id="dZoneChart"></canvas></div></div>

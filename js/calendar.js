@@ -90,6 +90,12 @@ export const blocksDuration = blocks => blocks.reduce((s, b) => s + b.secs, 0);
 const fmtDur = s => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}'`; };
 const clean = n => String(n ?? '').replace(/^\d{4}-\d{2}-\d{2}\s*-?\s*/, '');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Numero di settimana ISO (lunedì come primo giorno)
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+}
 const DOW = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
 export function renderCalendar(el, { month, acts, events }) {
@@ -108,7 +114,10 @@ export function renderCalendar(el, { month, acts, events }) {
 
   for (let w = start; w <= last.getTime(); w += 7 * 864e5) {
     let wTss = 0, wTime = 0, pTss = 0, pTime = 0;
-    html += '<div class="cal-week">';
+    const wEnd = new Date(dayOf(w).getTime() + 6 * 864e5);
+    const wk = isoWeek(dayOf(w));
+    html += `<div class="cal-week"><div class="cal-wlabel">Settimana ${wk}
+      <span>${dayOf(w).getDate()} ${dayOf(w).toLocaleDateString('it-IT', { month: 'short' })} – ${wEnd.getDate()} ${wEnd.toLocaleDateString('it-IT', { month: 'short' })}</span></div>`;
     for (let i = 0; i < 7; i++) {
       const d = startOfDay(dayOf(w).getTime() + i * 864e5);
       const date = new Date(d);
