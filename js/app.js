@@ -106,6 +106,7 @@ async function sync({ auto = false } = {}) {
   }
   syncing = true;
   $('syncBtn').disabled = true;
+  $('syncBtn').classList.add('spin');
   try {
     status(auto ? 'Aggiornamento automatico da intervals…' : 'Sincronizzazione in corso…');
     curveCache.clear();
@@ -130,6 +131,7 @@ async function sync({ auto = false } = {}) {
   } finally {
     syncing = false;
     $('syncBtn').disabled = false;
+    $('syncBtn').classList.remove('spin');
   }
 }
 
@@ -187,6 +189,44 @@ const drop = $('drop');
 drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); importFiles([...e.dataTransfer.files]); };
+
+// ---------- Schede richiudibili (stato ricordato tra un'apertura e l'altra) ----------
+const collapsedSet = new Set((() => { try { return JSON.parse(localStorage.getItem('collapsed')) || []; } catch { return []; } })());
+function cardKey(card, head) {
+  return card.id || card.querySelector('canvas')?.id || card.querySelector('[id]')?.id
+    || head.textContent.replace(/[\d·.,%]/g, '').trim().slice(0, 24);
+}
+function setupCollapsibles() {
+  document.querySelectorAll('main .card').forEach(card => {
+    if (card.tagName === 'DETAILS' || card.classList.contains('workout') || card.classList.contains('cal-card')) return;
+    const head = card.querySelector(':scope > h2, :scope > .card-head, :scope > .yp-head, :scope > .acts-head');
+    if (!head) return;
+    head.classList.add('card-title');
+    const key = cardKey(card, head);
+    card.classList.toggle('collapsed', collapsedSet.has(key));
+    let btn = card.querySelector(':scope > .card-toggle');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'card-toggle';
+      card.prepend(btn);
+    }
+    const sync = () => {
+      const c = card.classList.contains('collapsed');
+      btn.textContent = c ? '+' : '−';
+      btn.title = c ? 'Apri' : 'Chiudi';
+      btn.setAttribute('aria-expanded', String(!c));
+    };
+    sync();
+    btn.onclick = e => {
+      e.stopPropagation();
+      card.classList.toggle('collapsed');
+      card.classList.contains('collapsed') ? collapsedSet.add(key) : collapsedSet.delete(key);
+      try { localStorage.setItem('collapsed', JSON.stringify([...collapsedSet])); } catch {}
+      sync();
+      if (!card.classList.contains('collapsed')) card.querySelectorAll('canvas').forEach(cv => Chart.getChart(cv)?.resize());
+    };
+  });
+}
 
 // ---------- Tema chiaro / scuro / automatico ----------
 function applyTheme(t) {
@@ -302,6 +342,40 @@ const RADAR_GROUPS = [ // archi colorati esterni, come i "livelli di potenza"
   { from: 7, to: 11, color: '#f07a2d', name: 'Soglia' },
 ];
 const secLbl = s => (s < 60 ? `${s}s` : `${s / 60} m`);
+// Zona di potenza di un valore in watt (rispetto alla FTP) e il suo colore
+const zoneOf = w => {
+  const i = settings.ftp ? POWER_ZONES.findIndex(z => w / settings.ftp <= z.max) : 1;
+  return { i, color: ZONE_COLORS[Math.max(0, i)] };
+};
+const tint = (hex, k) => { // k = 1 colore pieno, k < 1 schiarito verso il bianco
+  const n = parseInt(hex.slice(1), 16), f = v => Math.round(v * k + 255 * (1 - k));
+  return `rgb(${f(n >> 16)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`;
+};
+// Riempimento a spicchi sfumati: ogni asse prende il colore della zona in cui cade il suo valore
+function zoneConic(ctx, watts, k) {
+  const c = ctx.chart, sc = c.scales.r;
+  if (!sc || !c.ctx.createConicGradient) return tint(ZONE_COLORS[4], k);
+  const n = watts.length, g = c.ctx.createConicGradient(-Math.PI / 2, sc.xCenter, sc.yCenter);
+  watts.forEach((w, i) => g.addColorStop(i / n, tint(zoneOf(w).color, k)));
+  g.addColorStop(1, tint(zoneOf(watts[0]).color, k));
+  return g;
+}
+// Testo al centro del disco
+const radarCenter = {
+  id: 'radarCenter',
+  afterDatasetsDraw(c) {
+    const o = c.options.plugins.radarCenter, sc = c.scales.r;
+    if (!o || !sc) return;
+    const { ctx } = c;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(sc.xCenter, sc.yCenter, 30, 0, Math.PI * 2);
+    ctx.fillStyle = css('--card'); ctx.globalAlpha = .92; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.textAlign = 'center'; ctx.fillStyle = css('--text');
+    ctx.font = '700 18px system-ui, sans-serif'; ctx.textBaseline = 'alphabetic'; ctx.fillText(o.text, sc.xCenter, sc.yCenter + 3);
+    ctx.font = '600 9.5px system-ui, sans-serif'; ctx.fillStyle = css('--muted'); ctx.fillText(o.sub, sc.xCenter, sc.yCenter + 15);
+    ctx.restore();
+  },
+};
 const radarArcs = {
   id: 'radarArcs',
   afterDatasetsDraw(c) { // prima del tooltip, così il fumetto resta sopra gli archi
@@ -331,20 +405,23 @@ async function drawRadars(R, ra, acts) {
   chart('radarPower', {
     type: 'radar',
     data: { labels: RADAR_SECS.map(secLbl), datasets: [
-      { label: 'Di sempre', data: allV.map(pct), backgroundColor: '#9b5de5cc', borderColor: '#7b3fbf', borderWidth: 1, pointRadius: 0, order: 2 },
-      { label: 'Periodo', data: perV.map(pct), backgroundColor: '#f6a8deee', borderColor: '#d96ac0', borderWidth: 1, pointRadius: 2, pointBackgroundColor: '#fff', order: 1 }, // order basso = disegnato sopra
+      { label: 'Di sempre', data: allV.map(pct), backgroundColor: c => zoneConic(c, allV, 0.95), borderColor: '#5b4a8a', borderWidth: 1, pointRadius: 0, pointHitRadius: 18, order: 2 },
+      { label: 'Periodo', data: perV.map(pct), backgroundColor: c => zoneConic(c, perV, 0.45), borderColor: '#ffffff', borderWidth: 1.5, pointRadius: 2.5, pointHitRadius: 18,
+        pointBackgroundColor: perV.map(w => zoneOf(w).color), pointBorderColor: '#fff', order: 1 }, // order basso = disegnato sopra
     ] },
     options: {
       layout: { padding: 6 },
+      interaction: { mode: 'index', intersect: false }, // fumetto ovunque sul disco, non solo sui punti
       scales: { r: { min: 0, max: 100, ticks: { display: false, stepCount: 5 }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 22, font: { size: 11, weight: '600' }, color: css('--text'),
           callback: (l, i) => [l, perV[i] ? `${perV[i]} W` : '–'] } } },
       plugins: {
         radarArcs: { groups: RADAR_GROUPS },
+        radarCenter: { text: `${Math.round(perV.reduce((t, v, i) => t + pct(v, i), 0) / RADAR_SECS.length)}%`, sub: 'del record' },
         tooltip: { callbacks: { label: t => `${t.dataset.label}: ${t.datasetIndex ? perV[t.dataIndex] : allV[t.dataIndex]} W (${t.raw}% del record)` } },
       },
     },
-    plugins: [radarArcs],
+    plugins: [radarArcs, radarCenter],
   });
 
   // Cuore: ore per zona nel periodo vs il periodo precedente della stessa durata
@@ -364,12 +441,13 @@ async function drawRadars(R, ra, acts) {
   chart('radarHr', {
     type: 'radar',
     data: { labels: Array.from({ length: nZ }, (_, i) => `Z${i + 1} ${IT[names[i]] || names[i] || ''}`.trim()), datasets: [
-      { order: 2, label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zp[i] || 0)), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
+      { order: 2, label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zp[i] || 0)), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, pointHitRadius: 18 },
       { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zc[i] || 0)), backgroundColor: '#ef6b6b99', borderColor: '#d64545', borderWidth: 1.5,
         pointRadius: 5, pointBorderColor: '#fff', pointBorderWidth: 1.5, pointBackgroundColor: HR_COLORS.slice(0, nZ) },
     ] },
     options: {
       layout: { padding: 6 },
+      interaction: { mode: 'index', intersect: false },
       scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 24, font: { size: 11, weight: '700' }, color: c => HR_COLORS[c.index] || css('--text'),
           // Su telefono solo sigla e ore, il nome della fascia resta nel fumetto
@@ -708,6 +786,7 @@ async function render() {
 
   // Calendario
   drawCalendar(acts, events);
+  setupCollapsibles();
 }
 
 let calMonth = new Date(); calMonth.setDate(1);
@@ -1086,6 +1165,7 @@ async function openDetail(a) {
 
   // Mappa del percorso
   drawMap(s, keys, a.date);
+  setupCollapsibles();
 
   // Migliori sforzi, con confronto ai record degli ultimi 90 giorni
   const lbl = d => (d < 60 ? `${d}s` : `${d / 60}'`);

@@ -372,3 +372,26 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 /* iPhone (iOS 26): il sistema sfoca i contenuti sotto la barra di stato.
    Quando la barra date è attaccata in alto la spostiamo più in basso, fuori dalla sfocatura. */
 .range-bar.stuck { padding-top: calc(env(safe-area-inset-top) + 26px); }
+
+/* Pulsante sincronizza: solo icona, gira durante l'aggiornamento */
+.icon-btn { width: 42px; height: 42px; padding: 0; display: grid; place-items: center; border-radius: 50%; margin: 0; }
+.icon-btn.spin svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Fumetti dei riquadri: piccoli, larghi quanto il testo */
+.kpi.has-tip::after { left: 8px; right: auto; width: max-content; max-width: min(260px, 80vw); white-space: nowrap; font-size: 12px; padding: 5px 9px; }
+@media (max-width: 700px) {
+  .kpi.has-tip::after { left: 6px; right: auto; width: max-content; }
+  .kpis .kpi.has-tip:nth-child(even)::after { left: auto; right: 6px; }
+}
+
+/* Schede richiudibili: pulsante − / + in alto a destra */
+main .card { position: relative; }
+.card-toggle { position: absolute; top: 8px; right: 8px; z-index: 3; width: 28px; height: 28px; margin: 0; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; font-size: 18px; line-height: 1; color: var(--muted); background: var(--bg); border: 1px solid var(--line); }
+.card-toggle:hover { color: var(--text); }
+.card-title { padding-right: 34px; }
+.card-head.card-title .seg { margin-right: 4px; }
+.card.collapsed > :not(.card-title):not(.card-toggle) { display: none !important; }
+.card.collapsed > .card-title { margin-bottom: 0; }
+.card.collapsed > .card-head .seg { display: none; }
