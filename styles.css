@@ -47,7 +47,10 @@ button.danger { color: var(--bad); }
 label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
 input { display: block; width: 100%; margin-top: 4px; padding: 9px; font: inherit; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
 .hint { font-size: 13px; color: var(--muted); margin-top: 0; }
-.drop { display: block; border: 2px dashed var(--line); border-radius: 12px; padding: 28px; text-align: center; color: var(--muted); cursor: pointer; }
+/* Pulsante compatto per caricare file, accanto al titolo Storico */
+.acts-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.acts-head h2 { margin: 0; }
+.drop { display: inline-block; border: 1.5px dashed var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--accent); cursor: pointer; white-space: nowrap; }
 .drop.over { border-color: var(--accent); }
 .drop input { display: none; }
 .row { display: flex; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -66,6 +69,22 @@ input { display: block; width: 100%; margin-top: 4px; padding: 9px; font: inheri
 .best div { background: var(--bg); border-radius: 8px; padding: 8px; text-align: center; }
 .best b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
 .best span { font-size: 12px; color: var(--muted); }
+/* Barra intervallo di date (resta visibile scorrendo) */
+.range-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 8px 0 10px; margin: -4px 0 8px; border-bottom: 1px solid var(--line); }
+.range-presets { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.range-presets button { margin: 0; padding: 5px 10px; font-size: 13px; border-radius: 999px; white-space: nowrap; }
+.range-presets button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.range-dates { display: flex; gap: 8px; }
+.range-dates label { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 13px; }
+.range-dates input { display: inline-block; width: auto; margin: 0; padding: 4px 6px; font-size: 14px; }
+.range-info { font-size: 12px; color: var(--muted); margin-left: auto; }
+@media (max-width: 700px) {
+  .range-dates { width: 100%; } .range-dates label { flex: 1; } .range-dates input { flex: 1; min-width: 0; }
+  .range-info { margin-left: 0; }
+}
+@media (min-width: 700px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
 /* Momenti chiave sotto il grafico potenza/battito */
 .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; margin-top: 12px; font-size: 13px; }
 .key { display: flex; gap: 8px; align-items: flex-start; }

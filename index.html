@@ -29,30 +29,43 @@
 
   <main>
     <section id="tab-dash" class="tab active">
+      <!-- Intervallo di date: rimodula KPI e grafici della dashboard -->
+      <div class="range-bar">
+        <div class="range-presets">
+          <button data-range="4w">4 sett</button><button data-range="3m">3 mesi</button><button data-range="6m">6 mesi</button>
+          <button data-range="ytd">Anno</button><button data-range="1y">12 mesi</button><button data-range="all">Tutto</button>
+        </div>
+        <div class="range-dates">
+          <label>Dal <input type="date" id="rangeFrom"></label>
+          <label>Al <input type="date" id="rangeTo"></label>
+        </div>
+        <div class="range-info" id="rangeInfo"></div>
+      </div>
       <div class="kpis" id="kpis"></div>
       <div class="card workout" id="workout"></div>
       <div class="card"><h2>Consigli</h2><ul id="advice" class="advice"></ul></div>
-      <div class="card" id="wellCard" hidden><h2>Recupero: HRV, sonno e FC a riposo (60 gg)</h2><div class="chart"><canvas id="wellChart"></canvas></div></div>
+      <div class="card" id="wellCard" hidden><h2>Recupero: HRV, sonno e FC a riposo</h2><div class="chart"><canvas id="wellChart"></canvas></div></div>
       <div class="card"><h2>Fitness · Fatica · Forma</h2><div class="chart"><canvas id="pmcChart"></canvas></div></div>
       <div class="grid2">
-        <div class="card"><h2>Carico settimanale (TSS)</h2><div class="chart"><canvas id="weekChart"></canvas></div></div>
-        <div class="card"><h2>Curva di potenza (90 gg)</h2><div class="chart"><canvas id="curveChart"></canvas></div></div>
+        <div class="card"><h2>Carico settimanale (TSS e ore)</h2><div class="chart"><canvas id="weekChart"></canvas></div></div>
+        <div class="card"><h2>Curva di potenza del periodo</h2><div class="chart"><canvas id="curveChart"></canvas></div></div>
       </div>
       <div class="grid2">
         <div class="card"><h2>Volume mensile</h2><div class="chart"><canvas id="monthChart"></canvas></div></div>
-        <div class="card"><h2>Zone di potenza (ultimi 28 giorni)</h2><div class="chart"><canvas id="zoneChart"></canvas></div></div>
+        <div class="card"><h2>Tempo nelle zone di potenza</h2><div class="chart"><canvas id="zoneChart"></canvas></div></div>
       </div>
     </section>
 
     <section id="tab-acts" class="tab">
       <div class="card">
-        <h2>Carica file</h2>
-        <label class="drop" id="drop">
-          <input type="file" id="fileInput" multiple accept=".fit,.json">
-          Tocca o trascina qui i file <b>.fit</b> o <b>.json</b>
-        </label>
+        <div class="acts-head">
+          <h2>Storico</h2>
+          <label class="drop" id="drop" title="Carica file .fit o .json (puoi anche trascinarli qui)">
+            <input type="file" id="fileInput" multiple accept=".fit,.json">⬆ Carica .fit / .json
+          </label>
+        </div>
+        <div id="actList"></div>
       </div>
-      <div class="card"><h2>Storico</h2><div id="actList"></div></div>
     </section>
 
     <section id="tab-detail" class="tab">

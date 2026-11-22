@@ -94,29 +94,49 @@ $('clearBtn').onclick = async () => {
 };
 
 // ---------- Sincronizzazione intervals.icu ----------
-$('syncBtn').onclick = async () => {
-  if (!settings.apiKey) { status('Inserisci la chiave API in Impostazioni.'); document.querySelector('[data-tab=set]').click(); return; }
+let syncing = false;
+$('syncBtn').onclick = () => sync();
+async function sync({ auto = false } = {}) {
+  if (syncing) return;
+  if (!settings.apiKey) {
+    if (!auto) { status('Inserisci la chiave API in Impostazioni.'); document.querySelector('[data-tab=set]').click(); }
+    return;
+  }
+  syncing = true;
+  $('syncBtn').disabled = true;
   try {
-    status('Sincronizzazione in corso…');
+    status(auto ? 'Aggiornamento automatico da intervals…' : 'Sincronizzazione in corso…');
+    curveCache.clear();
     const ath = await fetchAthlete(settings);
     settings = { ...settings, ftp: ath.ftp || settings.ftp, lthr: ath.lthr || settings.lthr, weight: ath.weight || settings.weight };
     saveSettings(settings); fillSettings();
-    const [acts, events, curve] = await Promise.all([fetchActivities(settings), fetchEvents(settings), fetchPowerCurve(settings)]);
+    const [acts, events, curve] = await Promise.all([fetchActivities(settings, 1100), fetchEvents(settings), fetchPowerCurve(settings)]);
     // Mantiene gli stream già scaricati per il dettaglio, così non vanno riscaricati.
     const prev = new Map((await getAll()).map(a => [a.id, a]));
     for (const a of acts) await putAct(prev.get(a.id)?.streams ? { ...a, streams: prev.get(a.id).streams } : a);
     await kvSet('events', events);
     await kvSet('curve', curve);
-    await kvSet('wellness', await fetchWellness(settings).catch(() => []));
+    await kvSet('wellness', await fetchWellness(settings, 1100).catch(() => []));
     await kvSet('lastSync', Date.now());
-    status(`Sincronizzate ${acts.length} uscite, ${events.length} eventi in calendario.`);
+    status(`Aggiornato alle ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · ${acts.length} uscite, ${events.length} eventi.`);
     render();
   } catch (e) {
     status(e instanceof TypeError
-      ? 'Connessione bloccata dal browser (CORS) o rete assente. Serve il proxy: vedi README.'
+      ? (auto ? 'Offline: mostro i dati salvati.' : 'Connessione bloccata dal browser (CORS) o rete assente. Serve il proxy: vedi README.')
       : e.message);
+  } finally {
+    syncing = false;
+    $('syncBtn').disabled = false;
   }
-};
+}
+
+// Sincronizzazione automatica: all'apertura e quando l'app torna in primo piano (es. iPhone),
+// se l'ultimo aggiornamento ha più di 10 minuti.
+async function autoSync() {
+  const lastSync = (await kvGet('lastSync')) || 0;
+  if (navigator.onLine !== false && Date.now() - lastSync > 10 * 60 * 1000) sync({ auto: true });
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoSync(); });
 
 // ---------- Caricamento file ----------
 async function importFiles(files) {
@@ -164,15 +184,58 @@ drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); importFiles([...e.dataTransfer.files]); };
 
+// ---------- Intervallo di date della dashboard ----------
+const PRESETS = { '4w': 28, '3m': 91, '6m': 182, '1y': 365, ytd: 'ytd', all: 'all' };
+const isoDay = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+let range = (() => { try { return JSON.parse(localStorage.getItem('range')) || { preset: '3m' }; } catch { return { preset: '3m' }; } })();
+let firstActDate = null;
+
+function getRange() {
+  const today = startOfDay(Date.now());
+  const pr = PRESETS[range.preset];
+  if (pr === 'ytd') return { from: new Date(new Date().getFullYear(), 0, 1).getTime(), to: today };
+  if (pr === 'all') return { from: firstActDate ?? today - 365 * 864e5, to: today };
+  if (pr) return { from: today - (pr - 1) * 864e5, to: today };
+  const from = startOfDay(new Date(range.from + 'T12:00').getTime()), to = startOfDay(new Date(range.to + 'T12:00').getTime());
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+function setRange(r) {
+  range = r;
+  try { localStorage.setItem('range', JSON.stringify(r)); } catch {}
+  syncRangeUi();
+  render();
+}
+function syncRangeUi() {
+  const R = getRange();
+  $('rangeFrom').value = isoDay(R.from);
+  $('rangeTo').value = isoDay(R.to);
+  document.querySelectorAll('[data-range]').forEach(b => b.classList.toggle('on', b.dataset.range === range.preset));
+}
+document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => setRange({ preset: b.dataset.range }));
+for (const id of ['rangeFrom', 'rangeTo']) $(id).addEventListener('change', () => {
+  if ($('rangeFrom').value && $('rangeTo').value) setRange({ preset: null, from: $('rangeFrom').value, to: $('rangeTo').value });
+});
+
+// Curva di potenza di intervals per l'intervallo scelto (in memoria per la sessione)
+const curveCache = new Map();
+async function curveForRange(R) {
+  if (!settings.apiKey) return null;
+  const key = `r.${isoDay(R.from)}.${isoDay(R.to)}`;
+  if (!curveCache.has(key)) curveCache.set(key, fetchPowerCurve(settings, key).catch(() => ({})));
+  return curveCache.get(key);
+}
+
 // ---------- Rendering ----------
 async function render() {
   const acts = (await getAll()).sort((a, b) => b.date - a.date);
+  firstActDate = acts.length ? startOfDay(acts[acts.length - 1].date) : null;
+  syncRangeUi();
   const events = (await kvGet('events')) || [];
   const icuCurve = (await kvGet('curve')) || {};
   // Se ci sono i valori ufficiali di intervals (che includono tutti gli sport) usiamo quelli,
   // altrimenti li calcoliamo dalle uscite salvate.
   const wellness = (await kvGet('wellness')) || [];
-  let p = pmc(acts, 120);
+  let p = pmc(acts, Infinity);
   if (wellness.length) {
     const ofDay = new Map(wellness.map(w => [startOfDay(w.date), w]));
     p = p.map(d => {
@@ -208,8 +271,16 @@ async function render() {
     } catch (e) { status(e.message); }
   };
 
+  // ---- Da qui in giù tutto segue l'intervallo Dal/Al scelto ----
+  const R = getRange();
+  const inR = t => t >= R.from && t < R.to + 864e5;
+  const ra = acts.filter(a => inR(a.date));
+  const pR = p.filter(d => inR(d.date));
+  const end = pR[pR.length - 1] || { ctl: 0, atl: 0 };
+  $('rangeInfo').textContent = `${ra.length} uscite · ${fmtDate(R.from)} → ${fmtDate(R.to)}`;
+
   // Wellness
-  const wl = wellness.filter(w => w.date > Date.now() - 60 * 864e5).sort((a, b) => a.date - b.date);
+  const wl = wellness.filter(w => inR(w.date)).sort((a, b) => a.date - b.date);
   $('wellCard').hidden = !wl.some(w => w.hrv || w.sleepSecs || w.restingHR);
   if (!$('wellCard').hidden) chart('wellChart', {
     type: 'line',
@@ -222,16 +293,18 @@ async function render() {
     options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false }, min: 0, max: 12 } } },
   });
 
-  // KPI
-  const weekStart = startOfDay(Date.now()) - ((new Date().getDay() + 6) % 7) * 864e5;
-  const week = acts.filter(a => a.date >= weekStart);
+  // KPI: fitness/fatica/forma alla fine del periodo, totali del periodo
   const sum = (arr, k) => arr.reduce((s, a) => s + (a[k] || 0), 0);
-  const wkg = settings.ftp && settings.weight ? (settings.ftp / settings.weight).toFixed(2) : '–';
+  const wkg = settings.ftp && settings.weight ? (settings.ftp / settings.weight).toFixed(2) : null;
+  const endLbl = R.to >= startOfDay(Date.now()) ? '' : ` al ${new Date(R.to).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}`;
   $('kpis').innerHTML = [
-    ['Fitness (CTL)', last.ctl.toFixed(0), 'fit'], ['Fatica (ATL)', last.atl.toFixed(0), 'fat'],
-    ['Forma (TSB)', (last.ctl - last.atl).toFixed(0), 'form'], ['TSS settimana', sum(week, 'tss').toFixed(0), 'load'],
-    ['Km settimana', (sum(week, 'distance') / 1000).toFixed(0), 'time'], ['FTP', settings.ftp ? `${settings.ftp} W · ${wkg} W/kg` : '–', 'power'],
+    ['Fitness (CTL)' + endLbl, end.ctl.toFixed(0), 'fit'], ['Fatica (ATL)' + endLbl, end.atl.toFixed(0), 'fat'],
+    ['Forma (TSB)' + endLbl, (end.ctl - end.atl).toFixed(0), 'form'], ['TSS periodo', sum(ra, 'tss').toFixed(0), 'load'],
+    ['Ore periodo', fmtDur(sum(ra, 'movingTime')), 'time'], ['Km periodo', (sum(ra, 'distance') / 1000).toFixed(0), 'time'],
+    ['Dislivello periodo', `${Math.round(sum(ra, 'ascent')).toLocaleString('it-IT')} m`, 'time'],
+    ['FTP' + (wkg ? ` · ${wkg} W/kg` : ''), settings.ftp ? `${settings.ftp} W` : '–', 'power'],
   ].map(kpi).join('');
+  const weekStart = startOfDay(R.to) - ((new Date(R.to).getDay() + 6) % 7) * 864e5;
 
   // Consigli
   $('advice').innerHTML = buildAdvice(acts.length ? p : [], acts, events, wstat).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
@@ -240,22 +313,23 @@ async function render() {
   chart('pmcChart', {
     type: 'line',
     data: {
-      labels: p.map(d => new Date(d.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })),
+      labels: pR.map(d => new Date(d.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', ...(R.to - R.from > 300 * 864e5 ? { year: '2-digit' } : {}) })),
       datasets: [
-        { label: 'Fitness', data: p.map(d => d.ctl), borderColor: '#2f6fde', backgroundColor: '#2f6fde22', fill: true, pointRadius: 0, tension: .3 },
-        { label: 'Fatica', data: p.map(d => d.atl), borderColor: '#c2185b', pointRadius: 0, tension: .3, borderWidth: 1.5 },
-        { label: 'Forma', data: p.map(d => d.tsb), borderColor: '#d98a00', pointRadius: 0, tension: .3, borderWidth: 1.5 },
-        { label: 'TSS', type: 'bar', data: p.map(d => d.load), backgroundColor: '#8891a055', yAxisID: 'y2' },
+        { label: 'Fitness', data: pR.map(d => d.ctl), borderColor: '#2f6fde', backgroundColor: '#2f6fde22', fill: true, pointRadius: 0, tension: .3 },
+        { label: 'Fatica', data: pR.map(d => d.atl), borderColor: '#c2185b', pointRadius: 0, tension: .3, borderWidth: 1.5 },
+        { label: 'Forma', data: pR.map(d => d.tsb), borderColor: '#d98a00', pointRadius: 0, tension: .3, borderWidth: 1.5 },
+        { label: 'TSS', type: 'bar', data: pR.map(d => d.load), backgroundColor: '#8891a055', yAxisID: 'y2' },
       ],
     },
     options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false } } } },
   });
 
-  // Settimanale (12 settimane)
+  // Settimanale: tutte le settimane del periodo
   const weeks = [];
-  for (let i = 11; i >= 0; i--) {
+  const nWeeks = Math.max(1, Math.ceil((weekStart - startOfDay(R.from)) / (7 * 864e5)) + 1);
+  for (let i = nWeeks - 1; i >= 0; i--) {
     const s = weekStart - i * 7 * 864e5, e = s + 7 * 864e5;
-    const w = acts.filter(a => a.date >= s && a.date < e);
+    const w = ra.filter(a => a.date >= s && a.date < e);
     weeks.push({ label: new Date(s).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }), tss: sum(w, 'tss'), h: sum(w, 'movingTime') / 3600 });
   }
   chart('weekChart', {
@@ -267,13 +341,13 @@ async function render() {
     options: { scales: { y2: { position: 'right', grid: { display: false } } } },
   });
 
-  // Mensile (12 mesi)
+  // Mensile: tutti i mesi del periodo
   const months = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); d.setMonth(d.getMonth() - i);
+  const multiYear = new Date(R.from).getFullYear() !== new Date(R.to).getFullYear();
+  for (let d = new Date(new Date(R.from).getFullYear(), new Date(R.from).getMonth(), 1); d.getTime() <= R.to; d.setMonth(d.getMonth() + 1)) {
     const e = new Date(d); e.setMonth(e.getMonth() + 1);
-    const m = acts.filter(a => a.date >= d.getTime() && a.date < e.getTime());
-    months.push({ label: d.toLocaleDateString('it-IT', { month: 'short' }), km: sum(m, 'distance') / 1000, up: sum(m, 'ascent') });
+    const m = ra.filter(a => a.date >= d.getTime() && a.date < e.getTime());
+    months.push({ label: d.toLocaleDateString('it-IT', { month: 'short', ...(multiYear ? { year: '2-digit' } : {}) }), km: sum(m, 'distance') / 1000, up: sum(m, 'ascent') });
   }
   chart('monthChart', {
     type: 'bar',
@@ -284,11 +358,12 @@ async function render() {
     options: { scales: { y2: { position: 'right', grid: { display: false } } } },
   });
 
-  // Curva di potenza: dati intervals se presenti, altrimenti dai FIT caricati
+  // Curva di potenza del periodo: da intervals (scaricata per l'intervallo scelto) + file FIT caricati
+  const rangeCurve = await curveForRange(R);
   const curve = {};
   for (const d of CURVE_DURATIONS) {
-    let best = icuCurve[d] || 0;
-    for (const a of acts) if (a.date > Date.now() - 90 * 864e5 && a.curve?.[d] > best) best = a.curve[d];
+    let best = rangeCurve?.[d] || 0;
+    for (const a of ra) if (a.curve?.[d] > best) best = a.curve[d];
     if (best) curve[d] = best;
   }
   const lbl = s => (s < 60 ? `${s}s` : `${s / 60}'`);
@@ -300,7 +375,7 @@ async function render() {
 
   // Zone
   const z = new Array(POWER_ZONES.length).fill(0);
-  acts.filter(a => a.date > Date.now() - 28 * 864e5).forEach(a => (a.zones || []).forEach((s, i) => (z[i] += s)));
+  ra.forEach(a => (a.zones || []).forEach((s, i) => (z[i] += s)));
   chart('zoneChart', {
     type: 'bar',
     data: { labels: POWER_ZONES.map(x => x.name), datasets: [{ label: 'Ore', data: z.map(s => +(s / 3600).toFixed(1)),
@@ -596,4 +671,4 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 fillSettings();
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-kvGet('lastSync').then(t => t && status('Ultima sincronizzazione: ' + new Date(t).toLocaleString('it-IT')));
+kvGet('lastSync').then(t => t && status('Ultima sincronizzazione: ' + new Date(t).toLocaleString('it-IT'))).then(autoSync);
