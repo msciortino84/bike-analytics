@@ -47,6 +47,8 @@ const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).
 const charts = {};
 function chart(id, cfg) {
   charts[id]?.destroy();
+  // Senza asse esplicito Chart.js può mettere le serie sull'asse destro (y2): forziamo 'y'.
+  cfg.data.datasets.forEach(d => { d.yAxisID ??= 'y'; });
   Chart.defaults.color = css('--muted');
   Chart.defaults.borderColor = css('--line');
   charts[id] = new Chart($(id), { ...cfg, options: { responsive: true, maintainAspectRatio: false, animation: false, ...cfg.options } });
