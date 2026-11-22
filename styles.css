@@ -66,6 +66,11 @@ input { display: block; width: 100%; margin-top: 4px; padding: 9px; font: inheri
 .best div { background: var(--bg); border-radius: 8px; padding: 8px; text-align: center; }
 .best b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
 .best span { font-size: 12px; color: var(--muted); }
+/* Momenti chiave sotto il grafico potenza/battito */
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; margin-top: 12px; font-size: 13px; }
+.key { display: flex; gap: 8px; align-items: flex-start; }
+.key .num { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--c); color: var(--c); font-weight: 700; font-size: 11px; display: grid; place-items: center; background: var(--card); }
+.key .s { color: var(--muted); font-size: 12px; }
 /* ---------- Calendario ---------- */
 .cal-card { padding: 10px; }
 .cal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }

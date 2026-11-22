@@ -359,6 +359,45 @@ function resample(time, values) {
   }
   return out;
 }
+// Media mobile centrata su `win` secondi. Con skipZero ignora i valori mancanti (0/null).
+function rolling(arr, win, skipZero = false) {
+  const out = new Array(arr.length);
+  let sum = 0, cnt = 0;
+  const half = Math.floor(win / 2);
+  const ok = v => v != null && !(skipZero && !v);
+  for (let i = 0; i < Math.min(half, arr.length); i++) if (ok(arr[i])) { sum += arr[i]; cnt++; }
+  for (let i = 0; i < arr.length; i++) {
+    const add = i + half, rem = i - half - 1;
+    if (add < arr.length && ok(arr[add])) { sum += arr[add]; cnt++; }
+    if (rem >= 0 && ok(arr[rem])) { sum -= arr[rem]; cnt--; }
+    out[i] = cnt ? sum / cnt : null;
+  }
+  return out;
+}
+// Finestra di d secondi con la media più alta.
+function bestWindow(p, d) {
+  let s = 0, best = -1, start = 0;
+  for (let i = 0; i < p.length; i++) {
+    s += p[i];
+    if (i >= d) s -= p[i - d];
+    if (i >= d - 1 && s > best) { best = s; start = i - d + 1; }
+  }
+  return { start, avg: best / d };
+}
+// Tratto con il maggior guadagno di quota (tollera piccole discese fino a 15 m).
+function biggestClimb(alt) {
+  let best = null, lo = 0, hi = 0;
+  for (let i = 1; i < alt.length; i++) {
+    if (alt[i] == null) continue;
+    if (alt[lo] == null || alt[i] < alt[lo] && alt[hi] - alt[i] > 15) { lo = hi = i; continue; }
+    if (alt[i] >= alt[hi]) {
+      hi = i;
+      const gain = alt[hi] - alt[lo];
+      if (!best || gain > best.gain) best = { from: lo, to: hi, gain };
+    } else if (alt[hi] - alt[i] > 15) { lo = hi = i; }
+  }
+  return best;
+}
 // Riduce a ~n punti facendo la media, per grafici leggeri anche su telefono.
 function downsample(arr, n = 600) {
   if (arr.length <= n) return arr;
@@ -407,21 +446,96 @@ async function openDetail(a) {
     ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–', 'cad'],
   ].map(kpi).join('');
 
-  // Grafico potenza + battito nel tempo
-  const N = 600;
-  const pw = downsample(power, N);
-  const hr = downsample(resample(s.time, s.hr || []).map(x => x || null), N);
+  // Grafico potenza + battito nel tempo, smussato, con i momenti chiave numerati
+  const hrSec = resample(s.time, s.hr || []);
+  const pSmooth = rolling(power, 30);           // media mobile 30 s: toglie i picchi di pedalata
+  const hSmooth = rolling(hrSec, 15, true);     // 15 s, ignorando i buchi del sensore
+  const N = 240;
+  const pw = downsample(pSmooth, N);
+  const hr = downsample(hSmooth, N);
   const step = power.length / pw.length;
   const labels = pw.map((_, i) => fmtDur(i * step));
+  const at = sec => Math.min(N - 1, Math.round(sec / step));
+
+  const keys = [];
+  if (hasPower) {
+    const add = (d, title) => {
+      if (power.length < d * 1.5) return;
+      const { start, avg } = bestWindow(power, d);
+      keys.push({ series: 'p', sec: start + d / 2, title, value: `${Math.round(avg)} W`, from: start, to: start + d });
+    };
+    add(5, 'Sprint (5″)');
+    add(60, 'Miglior 1′');
+    add(300, 'Miglior 5′');
+    add(1200, 'Miglior 20′');
+  }
+  if (hrs.length) {
+    let im = 0;
+    hSmooth.forEach((v, i) => { if (v > hSmooth[im]) im = i; });
+    keys.push({ series: 'h', sec: im, title: 'Battito massimo', value: `${maxHr} bpm` });
+  }
+  // Salita più lunga: tratto continuo con il maggior guadagno di quota
+  const altSec = resample(s.time, s.alt || []);
+  if (altSec.some(Boolean)) {
+    const climb = biggestClimb(rolling(altSec, 30, true));
+    if (climb && climb.gain > 80) {
+      const len = climb.to - climb.from;
+      const wAvg = hasPower ? power.slice(climb.from, climb.to).reduce((x, y) => x + y, 0) / len : null;
+      keys.push({ series: 'p', sec: (climb.from + climb.to) / 2, title: 'Salita principale',
+        value: `+${Math.round(climb.gain)} m in ${fmtDur(len)}${wAvg ? ` · ${Math.round(wAvg)} W` : ''}`, from: climb.from, to: climb.to });
+    }
+  }
+  keys.sort((a, b) => a.sec - b.sec).forEach((k, i) => (k.n = i + 1));
+
+  // Evidenzia sulla potenza i tratti dei migliori sforzi
+  const highlight = pw.map((_, i) => (keys.some(k => k.from != null && k.from <= i * step && i * step <= k.to) ? pw[i] : null));
+  const pal = { p: '#7b3fbf', h: '#d64545' };
   chart('dPowerChart', {
     type: 'line',
     data: { labels, datasets: [
-      ...(hasPower ? [{ label: 'Potenza (W)', data: pw.map(x => x && Math.round(x)), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf22', fill: true, pointRadius: 0, borderWidth: 1.2 }] : []),
-      { label: 'Battito (bpm)', data: hr.map(x => x && Math.round(x)), borderColor: '#d64545', pointRadius: 0, borderWidth: 1.5, yAxisID: 'y2' },
+      ...(hasPower ? [
+        { label: 'Potenza (W, media 30″)', data: pw.map(x => x != null ? Math.round(x) : null), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf1c', fill: true, pointRadius: 0, borderWidth: 2, tension: .4, cubicInterpolationMode: 'monotone' },
+        { label: 'Tratti migliori', data: highlight, borderColor: 'transparent', backgroundColor: '#7b3fbf55', fill: 'origin', pointRadius: 0, tension: .4, spanGaps: false },
+      ] : []),
+      { label: 'Battito (bpm)', data: hr.map(x => x ? Math.round(x) : null), borderColor: '#d64545', pointRadius: 0, borderWidth: 2, tension: .4, cubicInterpolationMode: 'monotone', spanGaps: true, yAxisID: 'y2' },
       ...(hasPower && settings.ftp ? [{ label: 'FTP', data: pw.map(() => settings.ftp), borderColor: '#8891a0', borderDash: [5, 5], pointRadius: 0, borderWidth: 1 }] : []),
+      // Marcatori numerati
+      ...['p', 'h'].map(sr => ({
+        label: '_keys' + sr, data: pw.map((_, i) => { const k = keys.find(k => k.series === sr && at(k.sec) === i); return k ? (sr === 'p' ? pw[i] : hr[i]) : null; }),
+        showLine: false, pointRadius: 9, pointHoverRadius: 11, pointBackgroundColor: '#fff', pointBorderColor: pal[sr], pointBorderWidth: 2.5,
+        yAxisID: sr === 'p' ? 'y' : 'y2', keyNums: pw.map((_, i) => keys.find(k => k.series === sr && at(k.sec) === i)?.n ?? null),
+      })).filter(d => hasPower || d.label === '_keysh'),
     ] },
-    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false } } } },
+    options: {
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { filter: l => !l.text.startsWith('_') && l.text !== 'Tratti migliori' } },
+        tooltip: { filter: t => !t.dataset.label.startsWith('_') && t.dataset.label !== 'Tratti migliori' },
+      },
+      scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true }, y2: { position: 'right', grid: { display: false } } },
+    },
+    plugins: [{
+      id: 'keyNums',
+      afterDatasetsDraw(c) {
+        const ctx = c.ctx;
+        c.data.datasets.forEach((d, di) => {
+          if (!d.keyNums) return;
+          c.getDatasetMeta(di).data.forEach((pt, i) => {
+            const n = d.keyNums[i];
+            if (n == null || d.data[i] == null) return;
+            ctx.save();
+            ctx.fillStyle = d.pointBorderColor; ctx.font = 'bold 11px system-ui, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(n, pt.x, pt.y + 0.5);
+            ctx.restore();
+          });
+        });
+      },
+    }],
   });
+  $('dKeys').innerHTML = keys.length ? keys.map(k => `
+    <div class="key"><span class="num" style="--c:${pal[k.series]}">${k.n}</span>
+      <div><b>${k.title}</b> · ${k.value}<div class="s">a ${fmtDur(k.sec)}</div></div></div>`).join('') : '';
 
   // Altimetria sulla distanza
   const pts = s.time.map((_, i) => ({ d: s.dist?.[i], h: s.alt?.[i] })).filter(p => p.d != null && p.h != null);
