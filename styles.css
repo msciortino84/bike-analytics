@@ -249,3 +249,6 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 .keys-box[open] .kb-more { font-size: 0; }
 .keys-box[open] .kb-more::after { content: "Nascondi ▴"; font-size: 13px; }
 .keys-box .keys { margin: 0; padding: 4px 12px 12px; }
+.kb-nums .num { flex: none; border-radius: 50%; border: 2px solid var(--c); color: var(--c); font-weight: 700; display: grid; place-items: center; background: var(--card); }
+.kb-t { white-space: nowrap; }
+@media (max-width: 420px) { .kb-nums .num:nth-child(n+5) { display: none; } }
