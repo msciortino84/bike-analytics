@@ -1,5 +1,5 @@
 // Service worker: rende l'app disponibile offline. Cambia VERSION a ogni rilascio.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.json', 'icon.svg',
   'js/app.js', 'js/fit.js', 'js/metrics.js', 'js/intervals.js', 'js/advice.js',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'];
@@ -15,7 +15,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || e.request.url.includes('intervals.icu') || e.request.url.includes('workers.dev')) return;
   e.respondWith(
-    fetch(e.request).then(r => {
+    // no-cache: chiede sempre a GitHub se il file è cambiato, invece di usare la copia del browser (che dura 10 minuti).
+    fetch(e.request, { cache: 'no-cache' }).then(r => {
       const copy = r.clone();
       caches.open(VERSION).then(c => c.put(e.request, copy));
       return r;
