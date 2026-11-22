@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#111418">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>Bike Analytics</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>🚴 Bike Analytics</h1>
+    <button id="syncBtn" class="primary">Sincronizza</button>
+  </header>
+  <nav>
+    <button data-tab="dash" class="active">Dashboard</button>
+    <button data-tab="acts">Attività</button>
+    <button data-tab="cal">Calendario</button>
+    <button data-tab="set">Impostazioni</button>
+  </nav>
+  <div id="status"></div>
+
+  <main>
+    <section id="tab-dash" class="tab active">
+      <div class="kpis" id="kpis"></div>
+      <div class="card"><h2>Consigli</h2><ul id="advice" class="advice"></ul></div>
+      <div class="card"><h2>Fitness · Fatica · Forma</h2><div class="chart"><canvas id="pmcChart"></canvas></div></div>
+      <div class="grid2">
+        <div class="card"><h2>Carico settimanale (TSS)</h2><div class="chart"><canvas id="weekChart"></canvas></div></div>
+        <div class="card"><h2>Curva di potenza (90 gg)</h2><div class="chart"><canvas id="curveChart"></canvas></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Volume mensile</h2><div class="chart"><canvas id="monthChart"></canvas></div></div>
+        <div class="card"><h2>Zone di potenza (28 gg, file FIT)</h2><div class="chart"><canvas id="zoneChart"></canvas></div></div>
+      </div>
+    </section>
+
+    <section id="tab-acts" class="tab">
+      <div class="card">
+        <h2>Carica file</h2>
+        <label class="drop" id="drop">
+          <input type="file" id="fileInput" multiple accept=".fit,.json">
+          Tocca o trascina qui i file <b>.fit</b> o <b>.json</b>
+        </label>
+      </div>
+      <div class="card"><h2>Storico</h2><div id="actList"></div></div>
+    </section>
+
+    <section id="tab-cal" class="tab">
+      <div class="card"><h2>Prossimi impegni (intervals.icu)</h2><div id="calList"></div></div>
+    </section>
+
+    <section id="tab-set" class="tab">
+      <div class="card">
+        <h2>intervals.icu</h2>
+        <p class="hint">Genera la chiave in intervals.icu → Settings → Developer Settings. L'ID atleta (es. i12345) è nella stessa pagina. La chiave resta salvata solo su questo dispositivo.</p>
+        <label>ID atleta <input id="athleteId" placeholder="i12345"></label>
+        <label>Chiave API <input id="apiKey" type="password" autocomplete="off"></label>
+        <label>Proxy (opzionale) <input id="proxyUrl" placeholder="https://...workers.dev/api/v1"></label>
+        <button id="saveSettings" class="primary">Salva</button>
+      </div>
+      <div class="card">
+        <h2>Soglie</h2>
+        <p class="hint">Si aggiornano da intervals a ogni sincronizzazione. Servono per i file FIT caricati a mano.</p>
+        <label>FTP (W) <input id="ftp" type="number"></label>
+        <label>FC soglia (bpm) <input id="lthr" type="number"></label>
+        <label>Peso (kg) <input id="weight" type="number" step="0.1"></label>
+        <button id="saveThresholds">Salva soglie</button>
+      </div>
+      <div class="card">
+        <h2>Dati</h2>
+        <button id="exportBtn">Esporta storico (.json)</button>
+        <button id="clearBtn" class="danger">Cancella tutti i dati</button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
