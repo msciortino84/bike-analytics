@@ -66,4 +66,50 @@ input { display: block; width: 100%; margin-top: 4px; padding: 9px; font: inheri
 .best div { background: var(--bg); border-radius: 8px; padding: 8px; text-align: center; }
 .best b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
 .best span { font-size: 12px; color: var(--muted); }
+/* ---------- Calendario ---------- */
+.cal-card { padding: 10px; }
+.cal-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.cal-head b { flex: 1; text-align: center; font-size: 17px; text-transform: capitalize; order: 0; }
+.cal-head button { margin: 0; min-width: 40px; }
+.cal-head [data-cal="-1"] { order: -1; }
+.cal-dow, .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)) 92px; gap: 4px; }
+.cal-dow span { font-size: 12px; color: var(--muted); text-align: center; padding: 4px 0; }
+.cal-week { margin-bottom: 4px; }
+.cal-day { min-height: 110px; background: var(--bg); border-radius: 8px; padding: 4px; overflow: hidden; }
+.cal-day.out { opacity: .45; }
+.cal-day.today { outline: 2px solid var(--accent); }
+.cal-date { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+.cal-day.today .cal-date { color: var(--accent); }
+.cal-dname { display: none; }
+.cal-ev, .cal-act { border-radius: 6px; padding: 4px 5px; margin-bottom: 3px; cursor: pointer; font-size: 12px; line-height: 1.25; }
+.cal-ev.plan { background: var(--card); border: 1px solid var(--line); }
+.cal-day.past .cal-ev.plan { opacity: .7; }
+.cal-ev.race { background: color-mix(in srgb, #d64545 12%, var(--card)); border: 1px solid #d6454566; }
+.cal-ev.note { background: transparent; color: var(--muted); }
+.cal-act { background: color-mix(in srgb, var(--accent) 14%, var(--card)); border-left: 3px solid var(--accent); }
+.cal-ev-t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-ev-s { color: var(--muted); font-size: 11px; }
+.wo-svg { display: block; width: 100%; height: 24px; margin: 3px 0 2px; border-radius: 3px; background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.wo-svg.big { height: 70px; margin: 8px 0; }
+.cal-sum { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+.cal-sum div { background: var(--bg); border-radius: 8px; padding: 5px 6px; display: flex; flex-direction: column; }
+.cal-sum div.pl { opacity: .75; }
+.cal-sum b { font-size: 13px; }
+.cal-sum span { color: var(--muted); }
+.cal-detail { margin-top: 10px; }
+.cal-detail .name { font-size: 18px; font-weight: 700; }
+/* Telefono: ogni giorno diventa una riga, la settimana un blocco */
+@media (max-width: 700px) {
+  .cal-dow { display: none; }
+  .cal-week { grid-template-columns: 1fr; gap: 3px; margin-bottom: 14px; }
+  .cal-day { min-height: 0; display: grid; grid-template-columns: 56px 1fr; gap: 2px 8px; align-items: start; }
+  .cal-day > :not(.cal-date) { grid-column: 2; }
+  .cal-day.out { display: none; }
+  .cal-day:not(:has(.cal-ev, .cal-act)) { opacity: .55; }
+  .cal-dname { display: inline; }
+  .cal-date { grid-row: 1 / span 4; padding-top: 3px; }
+  .cal-sum { flex-direction: row; }
+  .cal-sum div { flex: 1; flex-direction: row; gap: 8px; align-items: baseline; }
+  .wo-svg { height: 28px; }
+}
 .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); margin-left: 6px; }

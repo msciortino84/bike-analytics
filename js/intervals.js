@@ -48,15 +48,19 @@ export async function fetchActivities(settings, days = 365) {
     }));
 }
 
-export async function fetchEvents(settings, daysBack = 7, daysAhead = 28) {
+export async function fetchEvents(settings, daysBack = 70, daysAhead = 70) {
   const list = await call(settings, `/events?oldest=${iso(Date.now() - daysBack * 864e5)}&newest=${iso(Date.now() + daysAhead * 864e5)}`);
   return list.map(e => ({
+    id: e.id,
     date: new Date(e.start_date_local).getTime(),
     name: e.name || e.category,
     category: e.category,
+    type: e.type || null,
     load: e.icu_training_load ?? null,
     duration: e.moving_time ?? null,
     description: e.description || '',
+    // Struttura del workout già interpretata da intervals (passi, ripetute, % FTP)
+    steps: e.workout_doc?.steps || null,
   }));
 }
 

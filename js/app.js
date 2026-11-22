@@ -2,6 +2,7 @@ import { parseFit } from './fit.js';
 import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay, bestEfforts, normalizedPower, powerZones } from './metrics.js';
 import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout } from './intervals.js';
 import { buildAdvice, wellnessStatus, suggestWorkout } from './advice.js';
+import { renderCalendar, renderEventDetail } from './calendar.js';
 
 // ---------- Archivio locale (IndexedDB) ----------
 const db = await new Promise((res, rej) => {
@@ -323,12 +324,21 @@ async function render() {
   document.querySelectorAll('[data-open]').forEach(r => r.onclick = () => openDetail(acts.find(a => a.id === r.dataset.open)));
 
   // Calendario
-  const up = events.filter(e => e.date >= startOfDay(Date.now())).sort((a, b) => a.date - b.date);
-  $('calList').innerHTML = up.length ? up.map(e => `
-    <div class="row"><div><div class="t">${esc(e.name || '')}<span class="tag">${esc(e.category || '')}</span></div>
-      <div class="s">${fmtDate(e.date)}${e.description ? ' · ' + esc(e.description.slice(0, 120)) : ''}</div></div>
-      <div class="r">${e.load ? e.load + ' TSS' : ''}<div class="s">${e.duration ? fmtDur(e.duration) : ''}</div></div></div>`).join('')
-    : '<p class="hint">Nessun evento pianificato (o non ancora sincronizzato).</p>';
+  drawCalendar(acts, events);
+}
+
+let calMonth = new Date(); calMonth.setDate(1);
+function drawCalendar(acts, events) {
+  renderCalendar($('calView'), { month: calMonth, acts, events });
+  $('calView').querySelectorAll('[data-cal]').forEach(b => b.onclick = () => {
+    const step = +b.dataset.cal;
+    if (step === 0) { calMonth = new Date(); calMonth.setDate(1); }
+    else calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + step, 1);
+    drawCalendar(acts, events);
+  });
+  $('calView').querySelectorAll('[data-ev]').forEach(b => b.onclick = () =>
+    renderEventDetail($('calDetail'), events.find(e => String(e.id) === b.dataset.ev)));
+  $('calView').querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDetail(acts.find(a => a.id === b.dataset.open)));
 }
 // ---------- Dettaglio uscita ----------
 function showTab(name) {
