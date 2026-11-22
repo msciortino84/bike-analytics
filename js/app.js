@@ -872,9 +872,13 @@ async function openDetail(a) {
       },
     }],
   });
-  $('dKeys').innerHTML = keys.length ? keys.map(k => `
+  // Momenti chiave in un'area richiudibile: chiusa mostra solo un'anteprima dei numeri
+  $('dKeys').innerHTML = keys.length ? `<details class="keys-box">
+    <summary><span class="kb-nums">${keys.map(k => `<span class="num" style="--c:${pal[k.series]}">${k.n}</span>`).join('')}</span>
+      <span class="kb-t">${keys.length} momenti chiave</span><span class="kb-more">Mostra dettagli</span></summary>
+    <div class="keys">${keys.map(k => `
     <div class="key"><span class="num" style="--c:${pal[k.series]}">${k.n}</span>
-      <div><b>${k.title}</b> · ${k.value}<div class="s">a ${fmtDur(k.sec)}</div></div></div>`).join('') : '';
+      <div><b>${k.title}</b> · ${k.value}<div class="s">a ${fmtDur(k.sec)}</div></div></div>`).join('')}</div></details>` : '';
 
   // Mappa del percorso
   drawMap(s, keys, a.date);
@@ -888,7 +892,10 @@ async function openDetail(a) {
       const rec = icuCurve[d];
       const pct = rec ? Math.round((w / rec) * 100) : null;
       const wkg = settings.weight ? ` · ${(w / settings.weight).toFixed(1)} W/kg` : '';
-      return `<div><span>${lbl(+d)}</span><b>${w} W</b><span>${wkg.slice(3)}${pct ? `<br>${pct >= 100 ? '🏆 record 90 gg' : pct + '% del record'}` : ''}</span></div>`;
+      // Colore della zona di potenza in cui cade lo sforzo (rispetto alla FTP)
+      const zi = settings.ftp ? POWER_ZONES.findIndex(z => w / settings.ftp <= z.max) : -1;
+      const zc = zi >= 0 ? ZONE_COLORS[zi] : null;
+      return `<div${zc ? ` class="zoned" style="--z:${zc}" title="${POWER_ZONES[zi].name}"` : ''}><span>${lbl(+d)}</span><b>${w} W</b>${zc ? `<em>${POWER_ZONES[zi].name.split(' ')[0]}</em>` : ''}<span>${wkg.slice(3)}${pct ? `<br>${pct >= 100 ? '🏆 record 90 gg' : pct + '% del record'}` : ''}</span></div>`;
     }).join('') + '</div>';
     const z = powerZones(power, settings.ftp);
     chart('dZoneChart', {
