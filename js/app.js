@@ -331,7 +331,7 @@ async function drawRadars(R, ra, acts) {
     type: 'radar',
     data: { labels: RADAR_SECS.map(secLbl), datasets: [
       { label: 'Di sempre', data: allV.map(pct), backgroundColor: '#9b5de5cc', borderColor: '#7b3fbf', borderWidth: 1, pointRadius: 0 },
-      { label: 'Periodo', data: perV.map(pct), backgroundColor: '#f2a2dcdd', borderColor: '#e07cc8', borderWidth: 1, pointRadius: 2, pointBackgroundColor: '#fff' },
+      { label: 'Periodo', data: perV.map(pct), backgroundColor: '#f6a8deee', borderColor: '#d96ac0', borderWidth: 1, pointRadius: 2, pointBackgroundColor: '#fff' },
     ] },
     options: {
       layout: { padding: 6 },
@@ -358,20 +358,21 @@ async function drawRadars(R, ra, acts) {
   const nZ = Math.max(zc.length, zp.length, 5);
   const names = settings.hrZoneNames || [];
   const lims = settings.hrZones || [];
-  const IT = { Recovery: 'Recupero', Aerobic: 'Aerobico', Tempo: 'Tempo', SubThreshold: 'Sotto soglia', SuperThreshold: 'Sopra soglia', 'Aerobic Capacity': 'Capacità aerobica', Anaerobic: 'Anaerobico' };
+  const IT = { Recovery: 'Recupero', Aerobic: 'Aerobico', Tempo: 'Tempo', SubThreshold: 'Sotto soglia', SuperThreshold: 'Sopra soglia', 'Aerobic Capacity': 'Cap. aerobica', Anaerobic: 'Anaerobico' };
   const tot = zc.reduce((s, x) => s + (x || 0), 0) || 1;
   chart('radarHr', {
     type: 'radar',
     data: { labels: Array.from({ length: nZ }, (_, i) => `Z${i + 1} ${IT[names[i]] || names[i] || ''}`.trim()), datasets: [
-      { label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => zp[i] || 0), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
-      { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => zc[i] || 0), backgroundColor: '#ef6b6bbb', borderColor: '#d64545', borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: '#fff' },
+      { label: 'Periodo precedente', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zp[i] || 0)), backgroundColor: '#8891a044', borderColor: '#8891a0', borderWidth: 1, borderDash: [4, 3], pointRadius: 0 },
+      { label: 'Periodo', data: Array.from({ length: nZ }, (_, i) => Math.sqrt(zc[i] || 0)), backgroundColor: '#ef6b6bbb', borderColor: '#d64545', borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: '#fff' },
     ] },
     options: {
       layout: { padding: 6 },
       scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 10, font: { size: 11, weight: '600' }, color: css('--text'),
-          callback: (l, i) => [l, `${zc[i] || 0} h · ${Math.round((zc[i] || 0) / tot * 100)}%${lims[i] ? ` · ≤${lims[i]}` : ''}`] } } },
-      plugins: { tooltip: { callbacks: { label: t => `${t.dataset.label}: ${t.raw} h` } } },
+          callback: (l, i) => [l, `${zc[i] || 0} h · ${Math.round((zc[i] || 0) / tot * 100)}%`] } } },
+      // Raggio = radice delle ore: la Z1 (molte ore) non schiaccia le zone alte
+      plugins: { tooltip: { callbacks: { label: t => `${t.dataset.label}: ${(t.datasetIndex ? zc : zp)[t.dataIndex] || 0} h${lims[t.dataIndex] ? ` (fino a ${lims[t.dataIndex]} bpm)` : ''}` } } },
     },
   });
 }
