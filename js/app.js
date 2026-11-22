@@ -196,7 +196,7 @@ async function render() {
 
   // Wellness
   const wl = wellness.filter(w => w.date > Date.now() - 60 * 864e5).sort((a, b) => a.date - b.date);
-  $('wellCard').hidden = !wl.some(w => w.hrv || w.sleepSecs);
+  $('wellCard').hidden = !wl.some(w => w.hrv || w.sleepSecs || w.restingHR);
   if (!$('wellCard').hidden) chart('wellChart', {
     type: 'line',
     data: { labels: wl.map(w => new Date(w.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [
