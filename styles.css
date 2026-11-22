@@ -26,6 +26,18 @@ main { padding: 12px 16px; max-width: 1200px; margin: 0 auto; }
 .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .kpi .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .kpi .l { font-size: 12px; color: var(--muted); }
+/* Colori per categoria di dato */
+.kpi[class*="c-"] { border-left: 4px solid var(--c); background: color-mix(in srgb, var(--c) 7%, var(--card)); }
+.kpi[class*="c-"] .v { color: var(--c); }
+.c-time { --c: #2f6fde; }    /* durata, distanza, dislivello, velocità */
+.c-load { --c: #d98a00; }    /* TSS, IF, lavoro */
+.c-power { --c: #7b3fbf; }   /* potenza */
+.c-hr { --c: #d64545; }      /* battito */
+.c-cad { --c: #1f9d55; }     /* cadenza */
+.c-fit { --c: #2f6fde; } .c-fat { --c: #c2185b; } .c-form { --c: #d98a00; }
+@media (prefers-color-scheme: dark) {
+  .c-power { --c: #a77be8; } .c-time, .c-fit { --c: #5b8ff0; } .c-hr { --c: #ef6b6b; } .c-fat { --c: #e5568f; }
+}
 .advice { list-style: none; margin: 0; padding: 0; }
 .advice li { padding: 8px 10px; border-left: 4px solid var(--accent); margin-bottom: 6px; background: var(--bg); border-radius: 6px; }
 .advice li.good { border-color: var(--good); } .advice li.ok { border-color: var(--ok); } .advice li.bad { border-color: var(--bad); }

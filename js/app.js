@@ -212,10 +212,10 @@ async function render() {
   const sum = (arr, k) => arr.reduce((s, a) => s + (a[k] || 0), 0);
   const wkg = settings.ftp && settings.weight ? (settings.ftp / settings.weight).toFixed(2) : '–';
   $('kpis').innerHTML = [
-    ['Fitness (CTL)', last.ctl.toFixed(0)], ['Fatica (ATL)', last.atl.toFixed(0)],
-    ['Forma (TSB)', (last.ctl - last.atl).toFixed(0)], ['TSS settimana', sum(week, 'tss').toFixed(0)],
-    ['Km settimana', (sum(week, 'distance') / 1000).toFixed(0)], ['FTP', settings.ftp ? `${settings.ftp} W · ${wkg} W/kg` : '–'],
-  ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+    ['Fitness (CTL)', last.ctl.toFixed(0), 'fit'], ['Fatica (ATL)', last.atl.toFixed(0), 'fat'],
+    ['Forma (TSB)', (last.ctl - last.atl).toFixed(0), 'form'], ['TSS settimana', sum(week, 'tss').toFixed(0), 'load'],
+    ['Km settimana', (sum(week, 'distance') / 1000).toFixed(0), 'time'], ['FTP', settings.ftp ? `${settings.ftp} W · ${wkg} W/kg` : '–', 'power'],
+  ].map(kpi).join('');
 
   // Consigli
   $('advice').innerHTML = buildAdvice(p, acts, events, wstat).map(t => `<li class="${t.level}">${t.text}</li>`).join('');
@@ -278,7 +278,7 @@ async function render() {
   const lbl = s => (s < 60 ? `${s}s` : `${s / 60}'`);
   chart('curveChart', {
     type: 'line',
-    data: { labels: Object.keys(curve).map(Number).map(lbl), datasets: [{ label: 'Watt', data: Object.values(curve), borderColor: '#c2185b', backgroundColor: '#c2185b22', fill: true, tension: .3 }] },
+    data: { labels: Object.keys(curve).map(Number).map(lbl), datasets: [{ label: 'Watt', data: Object.values(curve), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf22', fill: true, tension: .3 }] },
     options: { plugins: { legend: { display: false } } },
   });
 
@@ -372,13 +372,15 @@ async function openDetail(a) {
   const vi = hasPower && a.avgPower ? (np / a.avgPower).toFixed(2) : null;
   const speed = a.movingTime ? (a.distance / a.movingTime) * 3.6 : 0;
   $('dKpis').innerHTML = [
-    ['Durata', fmtDur(a.movingTime)], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`], ['Dislivello', `${Math.round(a.ascent || 0)} m`],
-    ['Velocità media', `${speed.toFixed(1)} km/h`], ['TSS', a.tss ?? '–'], ['IF', a.ifactor ?? '–'],
-    ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–'], ['NP', np ? `${np} W` : '–'], ['Potenza max', maxP ? `${maxP} W` : '–'],
-    ['Lavoro', kj ? `${kj} kJ` : '–'], ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–'],
-    ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–'],
-    ...(vi ? [['Variabilità (VI)', vi]] : []),
-  ].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+    // Ordinati per categoria: percorso, carico, potenza, battito, cadenza
+    ['Durata', fmtDur(a.movingTime), 'time'], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time'],
+    ['Dislivello', `${Math.round(a.ascent || 0)} m`, 'time'], ['Velocità media', `${speed.toFixed(1)} km/h`, 'time'],
+    ['TSS', a.tss ?? '–', 'load'], ['IF', a.ifactor ?? '–', 'load'], ['Lavoro', kj ? `${kj} kJ` : '–', 'load'],
+    ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–', 'power'], ['NP', np ? `${np} W` : '–', 'power'],
+    ['Potenza max', maxP ? `${maxP} W` : '–', 'power'], ...(vi ? [['Variabilità (VI)', vi, 'power']] : []),
+    ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–', 'hr'],
+    ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–', 'cad'],
+  ].map(kpi).join('');
 
   // Grafico potenza + battito nel tempo
   const N = 600;
@@ -389,7 +391,7 @@ async function openDetail(a) {
   chart('dPowerChart', {
     type: 'line',
     data: { labels, datasets: [
-      ...(hasPower ? [{ label: 'Potenza (W)', data: pw.map(x => x && Math.round(x)), borderColor: '#c2185b', backgroundColor: '#c2185b18', fill: true, pointRadius: 0, borderWidth: 1 }] : []),
+      ...(hasPower ? [{ label: 'Potenza (W)', data: pw.map(x => x && Math.round(x)), borderColor: '#7b3fbf', backgroundColor: '#7b3fbf22', fill: true, pointRadius: 0, borderWidth: 1.2 }] : []),
       { label: 'Battito (bpm)', data: hr.map(x => x && Math.round(x)), borderColor: '#d64545', pointRadius: 0, borderWidth: 1.5, yAxisID: 'y2' },
       ...(hasPower && settings.ftp ? [{ label: 'FTP', data: pw.map(() => settings.ftp), borderColor: '#8891a0', borderDash: [5, 5], pointRadius: 0, borderWidth: 1 }] : []),
     ] },
@@ -430,6 +432,7 @@ async function openDetail(a) {
   }
 }
 
+const kpi = ([l, v, cat]) => `<div class="kpi${cat ? ' c-' + cat : ''}"><div class="v">${v}</div><div class="l">${l}</div></div>`;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 fillSettings();
