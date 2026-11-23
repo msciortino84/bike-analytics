@@ -241,9 +241,16 @@ function drawReadiness(r, hist) {
   // Un solo criterio di colore ovunque: il colore dice COME sta il pilastro (stessa scala dell'indice)
   const pcol = sc => (sc == null ? 'var(--line)' : sc >= 80 ? '#1f9d55' : sc >= 60 ? '#2f6fde' : sc >= 40 ? '#d98a00' : '#d64545');
   const RO = 76, CO = 2 * Math.PI * RO;
-  const segs = r.pillars.map(pl => {
+  // Nome del pilastro scritto lungo la curva, leggermente staccato, nello stesso verso della ruota
+  const RT = 90, ringName = { load: 'Carico' };
+  let tdefs = '';
+  const segs = r.pillars.map((pl, i) => {
     const len = pl.weight / tot * CO;
-    const el = `<circle cx="90" cy="90" r="${RO}" fill="none" stroke="${pcol(pl.score)}" stroke-width="7" stroke-dasharray="${len - gap} ${CO}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"><title>${pl.name}: ${pl.score ?? 'n.d.'}</title></circle>`;
+    const a0 = off / CO * 2 * Math.PI - Math.PI / 2, a1 = (off + len - gap) / CO * 2 * Math.PI - Math.PI / 2;
+    const p0 = [115 + RT * Math.cos(a0), 115 + RT * Math.sin(a0)], p1 = [115 + RT * Math.cos(a1), 115 + RT * Math.sin(a1)];
+    tdefs += `<path id="rpath${i}" d="M ${p0[0].toFixed(1)} ${p0[1].toFixed(1)} A ${RT} ${RT} 0 0 1 ${p1[0].toFixed(1)} ${p1[1].toFixed(1)}"/>`;
+    const el = `<circle cx="115" cy="115" r="${RO}" fill="none" stroke="${pcol(pl.score)}" stroke-width="7" stroke-dasharray="${len - gap} ${CO}" stroke-dashoffset="${-off}" transform="rotate(-90 115 115)"><title>${pl.name}: ${pl.score ?? 'n.d.'}</title></circle>
+      <text class="ready-plabel" fill="${pl.score == null ? 'var(--muted)' : pcol(pl.score)}"><textPath href="#rpath${i}" startOffset="50%" text-anchor="middle">${ringName[pl.key] || pl.name}</textPath></text>`;
     off += len;
     return el;
   }).join('');
@@ -252,14 +259,14 @@ function drawReadiness(r, hist) {
     <h2><span class="ready-mark">✦</span> Prontezza</h2>
     <div class="ready-body">
       <div class="ready-ring" style="--lc:${r.level.color}">
-        <svg viewBox="0 0 180 180" aria-label="Prontezza ${r.score} su 100">
-          <defs><filter id="rglow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <svg viewBox="0 0 230 230" aria-label="Prontezza ${r.score} su 100">
+          <defs>${tdefs}<filter id="rglow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
           ${segs}
-          <circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--line)" stroke-width="13"/>
-          <circle cx="90" cy="90" r="${R}" fill="none" stroke="${r.level.color}" stroke-width="13" stroke-linecap="round"
-            stroke-dasharray="${prog} ${C}" transform="rotate(-90 90 90)" filter="url(#rglow)" class="ready-prog"/>
-          <text x="90" y="92" text-anchor="middle" class="ready-num">${r.score}</text>
-          <text x="90" y="114" text-anchor="middle" class="ready-lvl" fill="${r.level.color}">${r.level.name.toUpperCase()}</text>
+          <circle cx="115" cy="115" r="${R}" fill="none" stroke="var(--line)" stroke-width="13"/>
+          <circle cx="115" cy="115" r="${R}" fill="none" stroke="${r.level.color}" stroke-width="13" stroke-linecap="round"
+            stroke-dasharray="${prog} ${C}" transform="rotate(-90 115 115)" filter="url(#rglow)" class="ready-prog"/>
+          <text x="115" y="117" text-anchor="middle" class="ready-num">${r.score}</text>
+          <text x="115" y="139" text-anchor="middle" class="ready-lvl" fill="${r.level.color}">${r.level.name.toUpperCase()}</text>
         </svg>
       </div>
       <div class="ready-side">
