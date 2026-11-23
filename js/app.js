@@ -412,7 +412,8 @@ async function drawRadars(R, ra, acts) {
     ] },
     options: {
       layout: { padding: 6 },
-      interaction: { mode: 'index', intersect: false }, // fumetto ovunque sul disco, non solo sui punti
+      // axis 'r': sceglie la durata in base all'ANGOLO del puntatore rispetto al centro, non alla distanza dai punti
+      interaction: { mode: 'index', intersect: false, axis: 'r' }, animation: false,
       scales: { r: { min: 0, max: 100, ticks: { display: false, stepCount: 5 }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 22, font: { size: 11, weight: '600' }, color: css('--text'),
           callback: (l, i) => [l, perV[i] ? `${perV[i]} W` : '–'] } } },
@@ -448,7 +449,7 @@ async function drawRadars(R, ra, acts) {
     ] },
     options: {
       layout: { padding: 6 },
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: 'index', intersect: false, axis: 'r' }, animation: false,
       scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 24, font: { size: 11, weight: '700' }, color: c => HR_COLORS[c.index] || css('--text'),
           // Su telefono solo sigla e ore, il nome della fascia resta nel fumetto
