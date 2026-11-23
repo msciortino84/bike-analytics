@@ -377,6 +377,21 @@ const radarCenter = {
     ctx.restore();
   },
 };
+// Modalità di interazione per i dischi: la voce scelta è quella dello spicchio in cui si trova il puntatore
+// (angolo rispetto al centro), così il fumetto non salta tra punti lontani.
+Chart.Interaction.modes.angle = (chart, e) => {
+  const sc = chart.scales.r;
+  if (!sc) return [];
+  const pos = Chart.helpers.getRelativePosition(e, chart);
+  const dx = pos.x - sc.xCenter, dy = pos.y - sc.yCenter;
+  if (Math.hypot(dx, dy) > sc.drawingArea + 20) return []; // fuori dal disco: nessun fumetto
+  const n = chart.data.labels.length;
+  let a = Math.atan2(dy, dx) + Math.PI / 2; // 0 = in alto, senso orario come gli assi
+  if (a < 0) a += Math.PI * 2;
+  const i = Math.round(a / (Math.PI * 2 / n)) % n;
+  return chart.data.datasets.map((_, di) => ({ element: chart.getDatasetMeta(di).data[i], datasetIndex: di, index: i }))
+    .filter(x => x.element && !chart.getDatasetMeta(x.datasetIndex).hidden);
+};
 const radarArcs = {
   id: 'radarArcs',
   afterDatasetsDraw(c) { // prima del tooltip, così il fumetto resta sopra gli archi
@@ -412,8 +427,7 @@ async function drawRadars(R, ra, acts) {
     ] },
     options: {
       layout: { padding: 6 },
-      // axis 'r': sceglie la durata in base all'ANGOLO del puntatore rispetto al centro, non alla distanza dai punti
-      interaction: { mode: 'index', intersect: false, axis: 'r' }, animation: false,
+      interaction: { mode: 'angle', intersect: false }, animation: false,
       scales: { r: { min: 0, max: 100, ticks: { display: false, stepCount: 5 }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 22, font: { size: 11, weight: '600' }, color: css('--text'),
           callback: (l, i) => [l, perV[i] ? `${perV[i]} W` : '–'] } } },
@@ -449,7 +463,7 @@ async function drawRadars(R, ra, acts) {
     ] },
     options: {
       layout: { padding: 6 },
-      interaction: { mode: 'index', intersect: false, axis: 'r' }, animation: false,
+      interaction: { mode: 'angle', intersect: false }, animation: false,
       scales: { r: { min: 0, ticks: { display: false }, angleLines: { color: css('--line') }, grid: { color: css('--line') },
         pointLabels: { padding: 24, font: { size: 11, weight: '700' }, color: c => HR_COLORS[c.index] || css('--text'),
           // Su telefono solo sigla e ore, il nome della fascia resta nel fumetto
