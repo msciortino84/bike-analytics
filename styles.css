@@ -395,3 +395,28 @@ main .card { position: relative; }
 .card.collapsed > :not(.card-title):not(.card-toggle) { display: none !important; }
 .card.collapsed > .card-title { margin-bottom: 0; }
 .card.collapsed > .card-head .seg { display: none; }
+
+/* ---------- Prontezza ---------- */
+.card.ready { border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 9%, var(--card)) 0%, var(--card) 55%); }
+.ready h2 { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 16px; letter-spacing: .02em; }
+.ready-mark { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-size: 13px; color: #fff;
+  background: conic-gradient(from 200deg, #1f9d55, #2f6fde, #7b3fbf, #d64545, #d98a00, #1f9d55); box-shadow: 0 0 10px #7b3fbf66; }
+.ready-body { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: center; }
+@media (max-width: 700px) { .ready-body { grid-template-columns: 1fr; justify-items: center; gap: 8px; } .ready-side { width: 100%; } }
+.ready-ring svg { width: 190px; height: 190px; display: block; }
+.ready-num { font: 800 46px system-ui, sans-serif; fill: var(--text); }
+.ready-lvl { font: 800 11px system-ui, sans-serif; letter-spacing: .12em; }
+.ready-prog { transition: stroke-dasharray .8s ease; }
+.ready-sentence { font-weight: 600; margin-bottom: 10px; }
+.ready-pillars { display: flex; flex-direction: column; gap: 6px; }
+.rp { display: grid; grid-template-columns: 22px 1fr 90px 28px; gap: 8px; align-items: center; font-size: 13px; }
+.rp.na { opacity: .5; }
+.rp-n { display: flex; flex-direction: column; font-weight: 600; min-width: 0; }
+.rp-n small { font-weight: 400; color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-bar { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.rp-bar i { display: block; height: 100%; border-radius: 4px; }
+.rp b { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { .rp { grid-template-columns: 22px 1fr 60px 26px; } }
+.ready-foot { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+.chart.spark { height: 70px; margin-top: 6px; }

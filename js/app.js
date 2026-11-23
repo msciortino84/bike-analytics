@@ -3,6 +3,7 @@ import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay, bestEffo
 import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout } from './intervals.js';
 import { wellnessStatus, suggestWorkout } from './advice.js';
 import { structuredAdvice } from './coach.js';
+import { computeReadiness, readinessHistory, PILLARS } from './readiness.js';
 import { renderCalendar, renderEventDetail } from './calendar.js';
 import { fuelPlan, fuelHtml } from './fuel.js';
 
@@ -225,6 +226,58 @@ function setupCollapsibles() {
       sync();
       if (!card.classList.contains('collapsed')) card.querySelectorAll('canvas').forEach(cv => Chart.getChart(cv)?.resize());
     };
+  });
+}
+
+// ---------- Prontezza: anello in cima alla dashboard ----------
+function drawReadiness(r, hist) {
+  const card = $('readyCard');
+  card.hidden = !r;
+  if (!r) return;
+  const R = 62, C = 2 * Math.PI * R, gap = 4;
+  // Anello esterno: un arco per pilastro, lungo quanto il suo peso, colorato in base al suo punteggio
+  const tot = PILLARS.reduce((s, x) => s + x.weight, 0);
+  let off = 0;
+  const segs = r.pillars.map(pl => {
+    const len = pl.weight / tot * (2 * Math.PI * 76);
+    const col = pl.score == null ? 'var(--line)' : pl.score >= 80 ? '#1f9d55' : pl.score >= 60 ? '#2f6fde' : pl.score >= 40 ? '#d98a00' : '#d64545';
+    const el = `<circle cx="90" cy="90" r="76" fill="none" stroke="${col}" stroke-width="7" stroke-dasharray="${len - gap} ${2 * Math.PI * 76}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"><title>${pl.name}: ${pl.score ?? 'n.d.'}</title></circle>`;
+    off += len;
+    return el;
+  }).join('');
+  const prog = r.score / 100 * C;
+  card.innerHTML = `
+    <h2><span class="ready-mark">✦</span> Prontezza</h2>
+    <div class="ready-body">
+      <div class="ready-ring" style="--lc:${r.level.color}">
+        <svg viewBox="0 0 180 180" aria-label="Prontezza ${r.score} su 100">
+          <defs><filter id="rglow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          ${segs}
+          <circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--line)" stroke-width="13"/>
+          <circle cx="90" cy="90" r="${R}" fill="none" stroke="${r.level.color}" stroke-width="13" stroke-linecap="round"
+            stroke-dasharray="${prog} ${C}" transform="rotate(-90 90 90)" filter="url(#rglow)" class="ready-prog"/>
+          <text x="90" y="92" text-anchor="middle" class="ready-num">${r.score}</text>
+          <text x="90" y="114" text-anchor="middle" class="ready-lvl" fill="${r.level.color}">${r.level.name.toUpperCase()}</text>
+        </svg>
+      </div>
+      <div class="ready-side">
+        <div class="ready-sentence">${esc(r.sentence)}</div>
+        <div class="ready-pillars">${r.pillars.map(pl => `
+          <div class="rp${pl.score == null ? ' na' : ''}" title="${esc(pl.note)}">
+            <span class="rp-i">${pl.icon}</span><span class="rp-n">${pl.name}<small>${esc(pl.note)}</small></span>
+            <span class="rp-bar"><i style="width:${pl.score ?? 0}%;background:${pl.color}"></i></span><b>${pl.score ?? '–'}</b>
+          </div>`).join('')}</div>
+        <div class="ready-foot">Basato su ${r.coverage} pilastri su 5${r.coverage < 5 ? ' · i mancanti non contano' : ''}</div>
+        <div class="chart spark"><canvas id="readySpark"></canvas></div>
+      </div>
+    </div>`;
+  chart('readySpark', {
+    type: 'line',
+    data: { labels: hist.map(h => new Date(h.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [{
+      label: 'Prontezza', data: hist.map(h => h.score), borderColor: r.level.color, backgroundColor: r.level.color + '22', fill: true,
+      pointRadius: 0, borderWidth: 2, tension: .35 }] },
+    options: { plugins: { legend: { display: false }, tooltip: { displayColors: false } }, interaction: { mode: 'index', intersect: false },
+      scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, grid: { color: css('--line') } } } },
   });
 }
 
@@ -614,7 +667,11 @@ async function render() {
   const wstat = wellnessStatus(wellness);
 
   // Allenamento del giorno
-  const wo = suggestWorkout(p, acts, events, wstat);
+  // Indice di Prontezza (oggi) e andamento degli ultimi 30 giorni
+  const rArgs = { pmc: p, wellness, activities: acts };
+  const ready = acts.length ? computeReadiness(rArgs) : null;
+  drawReadiness(ready, ready ? readinessHistory(rArgs, 30) : []);
+  const wo = suggestWorkout(p, acts, events, wstat, ready);
   const plannedToday = events.find(e => e.category === 'WORKOUT' && startOfDay(e.date) === startOfDay(Date.now()));
   if (!acts.length) {
     $('workout').innerHTML = `<h2>Benvenuto</h2>
@@ -1050,6 +1107,7 @@ async function openDetail(a) {
     ['Potenza media', a.avgPower ? `${a.avgPower} W` : '–', 'power'], ['NP', np ? `${np} W` : '–', 'power'],
     ['Potenza max', maxP ? `${maxP} W` : '–', 'power'], ...(vi ? [['Variabilità (VI)', vi, 'power']] : []),
     ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–', 'hr'],
+    ...(a.decoupling != null ? [['Disaccoppiamento', `${a.decoupling.toFixed(1)}%`, 'hr', `${Math.abs(a.decoupling) < 5 ? '✓ < 5%' : '⚠ > 5%'}${a.ef ? ` · EF ${a.ef.toFixed(2)}` : ''}`]] : []),
     ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–', 'cad', tipCad],
   ].map(kpi).join('');
 

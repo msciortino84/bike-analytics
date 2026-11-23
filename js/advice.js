@@ -39,7 +39,7 @@ const WORKOUTS = {
     description: '- 20m 60%\n\n3x\n- 1m 105%\n- 3m 55%\n\n- 13m 55%' },
 };
 
-export function suggestWorkout(pmcData, activities, events, wstat) {
+export function suggestWorkout(pmcData, activities, events, wstat, ready) {
   const last = pmcData[pmcData.length - 1] || { ctl: 0, atl: 0 };
   const tsb = last.ctl - last.atl;
   const reasons = [];
@@ -50,6 +50,12 @@ export function suggestWorkout(pmcData, activities, events, wstat) {
   const daysToRace = race ? Math.ceil((race.date - Date.now()) / 864e5) : null;
   let pick;
 
+  // La Prontezza ha la precedenza: sotto 40 recupero, sotto 60 solo fondo
+  if (ready && ready.score < 60 && !(daysToRace != null && daysToRace <= 1)) {
+    pick = ready.score < 25 ? 'rest' : ready.score < 40 ? 'recovery' : 'endurance';
+    reasons.push(`Prontezza ${ready.score} (${ready.level.name.toLowerCase()})`);
+    return { key: pick, ...WORKOUTS[pick], reasons };
+  }
   if (daysToRace != null && daysToRace <= 1) { pick = 'openers'; reasons.push(`gara "${race.name}" ${daysToRace <= 0 ? 'oggi' : 'domani'}`); }
   else if ((wstat?.hrvDev ?? 0) < -0.15 || tsb < -35) { pick = tsb < -40 ? 'rest' : 'recovery'; reasons.push(wstat?.hrvDev < -0.15 ? 'HRV molto bassa' : `forma molto negativa (${tsb.toFixed(0)})`); }
   else if (daysToRace != null && daysToRace <= 7) { pick = 'endurance'; reasons.push(`scarico: gara tra ${daysToRace} giorni`); }
