@@ -283,11 +283,29 @@ function drawReadiness(r, hist) {
 
 // ---------- Tema chiaro / scuro / automatico ----------
 function applyTheme(t) {
+  setTimeout(syncThemeBtn, 0);
   if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
   else delete document.documentElement.dataset.theme;
   const dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#111418' : '#f4f5f7');
 }
+// Interruttore scuro sì/no accanto a Sincronizza: forza chiaro o scuro (Automatico resta in Impostazioni)
+const isDark = () => {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+};
+function syncThemeBtn() {
+  const b = $('themeBtn'); if (!b) return;
+  b.classList.toggle('on', isDark());
+  b.setAttribute('aria-checked', String(isDark()));
+  document.querySelectorAll('input[name=theme]').forEach(r => { r.checked = r.value === ((() => { try { return localStorage.getItem('theme'); } catch { return null; } })() || 'auto'); });
+}
+$('themeBtn').onclick = () => {
+  const t = isDark() ? 'light' : 'dark';
+  try { localStorage.setItem('theme', t); } catch {}
+  applyTheme(t);
+  render();
+};
 const savedTheme = (() => { try { return localStorage.getItem('theme') || 'auto'; } catch { return 'auto'; } })();
 applyTheme(savedTheme);
 document.querySelectorAll('input[name=theme]').forEach(r => {

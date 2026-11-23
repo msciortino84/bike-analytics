@@ -23,11 +23,16 @@
 <body>
   <header>
     <h1>🚴 Bike Analytics</h1>
+    <div class="head-actions">
+    <button id="themeBtn" class="theme-toggle" role="switch" aria-checked="false" title="Tema scuro" aria-label="Tema scuro">
+      <span class="tt-track"><span class="tt-knob"><span class="tt-sun">☀</span><span class="tt-moon">☾</span></span></span>
+    </button>
     <button id="syncBtn" class="primary icon-btn" title="Sincronizza" aria-label="Sincronizza con intervals.icu">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18.5 1.5v4.3h-4.3"/><path d="M5.5 22.5v-4.3h4.3"/>
       </svg>
     </button>
+    </div>
   </header>
   <nav>
     <button data-tab="dash" class="active">Dashboard</button>
