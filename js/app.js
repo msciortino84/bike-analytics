@@ -256,10 +256,10 @@ function drawReadiness(r, hist) {
   }).join('');
   const prog = r.score / 100 * C;
   card.innerHTML = `
-    <h2><span class="ready-mark">✦</span> Prontezza</h2>
+    <h2><span class="ready-mark">✦</span> Readiness</h2>
     <div class="ready-body">
       <div class="ready-ring" style="--lc:${r.level.color}">
-        <svg viewBox="0 0 230 230" aria-label="Prontezza ${r.score} su 100">
+        <svg viewBox="0 0 230 230" aria-label="Readiness ${r.score} su 100">
           <defs>${tdefs}<filter id="rglow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
           ${segs}
           <circle cx="115" cy="115" r="${R}" fill="none" stroke="var(--line)" stroke-width="13"/>
@@ -283,7 +283,7 @@ function drawReadiness(r, hist) {
   chart('readySpark', {
     type: 'line',
     data: { labels: hist.map(h => new Date(h.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [{
-      label: 'Prontezza', data: hist.map(h => h.score), borderColor: r.level.color, backgroundColor: r.level.color + '22', fill: true,
+      label: 'Readiness', data: hist.map(h => h.score), borderColor: r.level.color, backgroundColor: r.level.color + '22', fill: true,
       pointRadius: 0, borderWidth: 2, tension: .35 }] },
     options: { plugins: { legend: { display: false }, tooltip: { displayColors: false } }, interaction: { mode: 'index', intersect: false },
       scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, grid: { color: css('--line') } } } },

@@ -53,7 +53,7 @@ export function suggestWorkout(pmcData, activities, events, wstat, ready) {
   // La Prontezza ha la precedenza: sotto 40 recupero, sotto 60 solo fondo
   if (ready && ready.score < 60 && !(daysToRace != null && daysToRace <= 1)) {
     pick = ready.score < 25 ? 'rest' : ready.score < 40 ? 'recovery' : 'endurance';
-    reasons.push(`Prontezza ${ready.score} (${ready.level.name.toLowerCase()})`);
+    reasons.push(`Readiness ${ready.score} (${ready.level.name.toLowerCase()})`);
     return { key: pick, ...WORKOUTS[pick], reasons };
   }
   if (daysToRace != null && daysToRace <= 1) { pick = 'openers'; reasons.push(`gara "${race.name}" ${daysToRace <= 0 ? 'oggi' : 'domani'}`); }
