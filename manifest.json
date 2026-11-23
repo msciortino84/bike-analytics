@@ -1,6 +1,6 @@
 {
-  "name": "Bike Analytics",
-  "short_name": "Bike",
+  "name": "Kairos",
+  "short_name": "Kairos",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#111418",

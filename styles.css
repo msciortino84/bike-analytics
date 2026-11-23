@@ -437,3 +437,7 @@ main .card { position: relative; }
 .ready-ring svg { width: 236px; height: 236px; }
 .ready-plabel { font: 700 9.5px system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
 @media (max-width: 700px) { .ready-body { grid-template-columns: 1fr; } }
+
+/* Marchio Kairos nell'intestazione */
+h1.brand { display: flex; align-items: center; gap: 9px; letter-spacing: .02em; }
+h1.brand img { display: block; filter: drop-shadow(0 0 6px #ffd16655); }

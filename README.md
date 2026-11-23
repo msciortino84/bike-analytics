@@ -1,4 +1,6 @@
-# Bike Analytics
+# Kairos
+
+*Il momento giusto per spingere, il momento giusto per recuperare.*
 
 App web per analizzare le uscite in bici: sincronizzazione da intervals.icu, caricamento di file `.fit`/`.json`, carico di lavoro (TSS, CTL/ATL/TSB), curva di potenza, zone, storico e consigli.
 
