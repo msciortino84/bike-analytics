@@ -238,10 +238,17 @@ function drawReadiness(r, hist) {
   // Anello esterno: un arco per pilastro, lungo quanto il suo peso, colorato in base al suo punteggio
   const tot = PILLARS.reduce((s, x) => s + x.weight, 0);
   let off = 0;
+  // Un solo criterio di colore ovunque: il colore dice COME sta il pilastro (stessa scala dell'indice)
+  const pcol = sc => (sc == null ? 'var(--line)' : sc >= 80 ? '#1f9d55' : sc >= 60 ? '#2f6fde' : sc >= 40 ? '#d98a00' : '#d64545');
+  const RO = 76, CO = 2 * Math.PI * RO;
   const segs = r.pillars.map(pl => {
-    const len = pl.weight / tot * (2 * Math.PI * 76);
-    const col = pl.score == null ? 'var(--line)' : pl.score >= 80 ? '#1f9d55' : pl.score >= 60 ? '#2f6fde' : pl.score >= 40 ? '#d98a00' : '#d64545';
-    const el = `<circle cx="90" cy="90" r="76" fill="none" stroke="${col}" stroke-width="7" stroke-dasharray="${len - gap} ${2 * Math.PI * 76}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"><title>${pl.name}: ${pl.score ?? 'n.d.'}</title></circle>`;
+    const len = pl.weight / tot * CO;
+    // icona del pilastro sul suo segmento, così non serve dedurlo dall'ordine
+    const mid = (off + len / 2) / CO * 2 * Math.PI - Math.PI / 2;
+    const ix = 90 + Math.cos(mid) * RO, iy = 90 + Math.sin(mid) * RO;
+    const el = `<circle cx="90" cy="90" r="${RO}" fill="none" stroke="${pcol(pl.score)}" stroke-width="7" stroke-dasharray="${len - gap} ${CO}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"><title>${pl.name}: ${pl.score ?? 'n.d.'}</title></circle>
+      <circle cx="${ix.toFixed(1)}" cy="${iy.toFixed(1)}" r="10" fill="var(--card)" stroke="${pcol(pl.score)}" stroke-width="2"/>
+      <text x="${ix.toFixed(1)}" y="${(iy + 4).toFixed(1)}" text-anchor="middle" font-size="11">${pl.icon}</text>`;
     off += len;
     return el;
   }).join('');
@@ -250,7 +257,7 @@ function drawReadiness(r, hist) {
     <h2><span class="ready-mark">✦</span> Prontezza</h2>
     <div class="ready-body">
       <div class="ready-ring" style="--lc:${r.level.color}">
-        <svg viewBox="0 0 180 180" aria-label="Prontezza ${r.score} su 100">
+        <svg viewBox="-6 -6 192 192" aria-label="Prontezza ${r.score} su 100">
           <defs><filter id="rglow"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
           ${segs}
           <circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--line)" stroke-width="13"/>
@@ -265,7 +272,7 @@ function drawReadiness(r, hist) {
         <div class="ready-pillars">${r.pillars.map(pl => `
           <div class="rp${pl.score == null ? ' na' : ''}" title="${esc(pl.note)}">
             <span class="rp-i">${pl.icon}</span><span class="rp-n">${pl.name}<small>${esc(pl.note)}</small></span>
-            <span class="rp-bar"><i style="width:${pl.score ?? 0}%;background:${pl.color}"></i></span><b>${pl.score ?? '–'}</b>
+            <span class="rp-bar"><i style="width:${pl.score ?? 0}%;background:${pcol(pl.score)}"></i></span><b style="color:${pcol(pl.score)}">${pl.score ?? '–'}</b>
           </div>`).join('')}</div>
         <div class="ready-foot">Basato su ${r.coverage} pilastri su 5${r.coverage < 5 ? ' · i mancanti non contano' : ''}</div>
         <div class="chart spark"><canvas id="readySpark"></canvas></div>
