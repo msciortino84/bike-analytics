@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111418">
+  <title>Guida · Kairos</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+  </script>
+  <style>
+    .guide { max-width: 980px; margin: 0 auto; padding: 0 16px 60px; }
+    .g-hero { display: flex; align-items: center; gap: 14px; padding: 18px 0 8px; }
+    .g-hero img { width: 54px; height: 54px; filter: drop-shadow(0 0 8px #ffd16666); }
+    .g-hero h1 { margin: 0; font-size: 26px; }
+    .g-hero p { margin: 2px 0 0; color: var(--muted); }
+    .g-back { display: inline-block; margin: 14px 0 4px; color: var(--accent); text-decoration: none; font-weight: 600; }
+    .toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; }
+    .toc a { text-decoration: none; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+    .toc a:hover { border-color: var(--accent); color: var(--accent); }
+    section.g { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; scroll-margin-top: 12px; }
+    section.g > h2 { font-size: 19px; color: var(--text); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+    section.g > .lead { color: var(--muted); margin: 0 0 12px; }
+    h3 { font-size: 15px; margin: 18px 0 6px; }
+    .g ul { padding-left: 20px; margin: 6px 0; } .g li { margin-bottom: 5px; }
+    .kw { font-weight: 700; color: var(--accent); }
+    .kw.g1 { color: #1f9d55; } .kw.o { color: #d98a00; } .kw.r { color: #d64545; } .kw.p { color: #7b3fbf; }
+    .split { display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: start; }
+    @media (max-width: 700px) { .split { grid-template-columns: 1fr; } .split > svg, .split > .fig { justify-self: center; } }
+    .fig { display: block; max-width: 100%; }
+    .tbl { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+    .tbl th, .tbl td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .tbl th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+    .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; }
+    .tip { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); border-left: 4px solid var(--accent); padding: 9px 12px; border-radius: 8px; margin: 10px 0; font-size: 14px; }
+    .tip.warn { border-color: #d98a00; background: color-mix(in srgb, #d98a00 9%, var(--bg)); }
+    .sym { display: inline-grid; place-items: center; min-width: 26px; padding: 1px 6px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-weight: 700; }
+    .zbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 6px 0; }
+    .zbar i { display: block; }
+    .grid-mini { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+    .mini { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; }
+    .mini b { display: block; margin-bottom: 3px; }
+  </style>
+</head>
+<body>
+<div class="guide">
+  <a class="g-back" href="./">← Torna all'app</a>
+  <div class="g-hero">
+    <img src="icon.svg" alt="">
+    <div><h1>Guida di Kairos</h1><p>Il momento giusto per spingere, il momento giusto per recuperare.</p></div>
+  </div>
+
+  <nav class="toc">
+    <a href="#inizio">🚀 Per iniziare</a><a href="#readiness">✦ Readiness</a><a href="#dashboard">📊 Dashboard</a>
+    <a href="#forma">📈 Fitness · Fatica · Forma</a><a href="#consigli">💡 Consigli</a><a href="#anno">🎯 Quest'anno</a>
+    <a href="#dischi">🟣 Livelli di potenza e cuore</a><a href="#grafici">📉 Altri grafici</a><a href="#attivita">🚴 Attività</a>
+    <a href="#dettaglio">🔍 Dettaglio uscita</a><a href="#integrazione">🍌 Integrazione</a><a href="#calendario">📅 Calendario</a>
+    <a href="#impostazioni">⚙️ Impostazioni</a><a href="#glossario">📖 Glossario</a>
+  </nav>
+
+  <!-- ===================== PER INIZIARE ===================== -->
+  <section class="g" id="inizio">
+    <h2>🚀 Per iniziare</h2>
+    <p class="lead">Kairos legge i tuoi dati da <span class="kw">intervals.icu</span> e li trasforma in un cruscotto con consigli.</p>
+    <ul>
+      <li><b>Accesso</b>: in <span class="kw">Impostazioni</span> inserisci <b>ID atleta</b> e <b>chiave API</b> di intervals e premi <span class="kw">Accedi e sincronizza</span>. Il browser ti propone di salvarli come password: accetta e sugli altri dispositivi si compilano da soli.</li>
+      <li><b>Sincronizzazione</b>: il pulsante con le <span class="sym">⟳</span> frecce rotonde in alto aggiorna i dati. All'apertura l'app <b>si aggiorna da sola</b> se l'ultimo aggiornamento ha più di 10 minuti.</li>
+      <li><b>Tema</b>: l'interruttore <span class="sym">☀</span>/<span class="sym">☾</span> accanto alla sincronizzazione passa da chiaro a scuro. Per seguire il telefono: Impostazioni → Aspetto → <b>Automatico</b>.</li>
+      <li><b>Su iPhone</b>: apri l'indirizzo in Safari → <b>Condividi → Aggiungi a Home</b>. Si apre a tutto schermo come un'app e funziona anche offline con gli ultimi dati.</li>
+      <li><b>Schede richiudibili</b>: ogni scheda ha in alto a destra <span class="sym">−</span> per chiuderla e <span class="sym">+</span> per riaprirla. Kairos <b>ricorda</b> quali hai chiuso.</li>
+      <li><b>Fumetti</b>: i riquadri con <span class="sym">ⓘ</span> mostrano dettagli in più passandoci sopra o <b>toccandoli</b>.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== READINESS ===================== -->
+  <section class="g" id="readiness">
+    <h2>✦ Readiness</h2>
+    <p class="lead">Un unico numero da <b>0 a 100</b> che risponde alla domanda: <span class="kw">"quanto sono pronto oggi ad allenarmi bene?"</span></p>
+    <div class="split">
+      <svg class="fig" viewBox="0 0 230 230" width="170" height="170" aria-label="Esempio di anello Readiness">
+        <defs>
+          <path id="ga0" d="M 115 25 A 90 90 0 0 1 200.6 87.2"/><path id="ga1" d="M 199.3 147.8 A 90 90 0 0 1 132.9 203.2"/>
+          <path id="ga2" d="M 87.4 200.7 A 90 90 0 0 1 25.4 125.6"/><path id="ga3" d="M 28.3 89.4 A 90 90 0 0 1 49.1 53.7"/>
+          <path id="ga4" d="M 60.2 44.4 A 90 90 0 0 1 98.2 26.6"/>
+        </defs>
+        <circle cx="115" cy="115" r="76" fill="none" stroke="#d64545" stroke-width="7" stroke-dasharray="139 478" transform="rotate(-90 115 115)"/>
+        <circle cx="115" cy="115" r="76" fill="none" stroke="#2f6fde" stroke-width="7" stroke-dasharray="139 478" stroke-dashoffset="-143" transform="rotate(-90 115 115)"/>
+        <circle cx="115" cy="115" r="76" fill="none" stroke="#1f9d55" stroke-width="7" stroke-dasharray="91 478" stroke-dashoffset="-286" transform="rotate(-90 115 115)"/>
+        <circle cx="115" cy="115" r="76" fill="none" stroke="#2f6fde" stroke-width="7" stroke-dasharray="44 478" stroke-dashoffset="-382" transform="rotate(-90 115 115)"/>
+        <circle cx="115" cy="115" r="76" fill="none" stroke="#2f6fde" stroke-width="7" stroke-dasharray="44 478" stroke-dashoffset="-430" transform="rotate(-90 115 115)"/>
+        <g font-size="9.5" font-weight="700" letter-spacing=".6" font-family="system-ui, sans-serif">
+          <text fill="#d64545"><textPath href="#ga0" startOffset="50%" text-anchor="middle">FRESCHEZZA</textPath></text>
+          <text fill="#2f6fde"><textPath href="#ga1" startOffset="50%" text-anchor="middle">RECUPERO</textPath></text>
+          <text fill="#1f9d55"><textPath href="#ga2" startOffset="50%" text-anchor="middle">SONNO</textPath></text>
+          <text fill="#2f6fde"><textPath href="#ga3" startOffset="50%" text-anchor="middle">CARICO</textPath></text>
+          <text fill="#2f6fde"><textPath href="#ga4" startOffset="50%" text-anchor="middle">QUALITÀ</textPath></text>
+        </g>
+        <circle cx="115" cy="115" r="62" fill="none" stroke="var(--line)" stroke-width="13"/>
+        <circle cx="115" cy="115" r="62" fill="none" stroke="#2f6fde" stroke-width="13" stroke-linecap="round" stroke-dasharray="265 390" transform="rotate(-90 115 115)"/>
+        <text x="115" y="118" text-anchor="middle" font-size="46" font-weight="800" fill="var(--text)" font-family="system-ui">68</text>
+        <text x="115" y="140" text-anchor="middle" font-size="11" font-weight="800" letter-spacing="1.3" fill="#2f6fde" font-family="system-ui">BUONO</text>
+      </svg>
+      <div>
+        <p>La <b>forma</b> (TSB) dice solo quanta fatica hai accumulato. La <span class="kw">Readiness</span> unisce invece <b>cinque aspetti</b>: il carico, come risponde il corpo, il sonno, la sostenibilità del lavoro e la qualità dell'allenamento. Ogni aspetto è confrontato con <b>la tua media personale</b>, non con valori standard.</p>
+        <ul>
+          <li><b>Anello interno</b>: il punteggio di oggi, colorato secondo il livello.</li>
+          <li><b>Anello esterno</b>: un segmento per pilastro, con il nome scritto lungo la curva. La <b>lunghezza</b> indica quanto pesa, il <b>colore</b> come sta.</li>
+          <li><b>Frase</b>: il consiglio del giorno e il <b>punto debole</b>, oppure il segnale che sta limitando il punteggio.</li>
+          <li><b>Andamento</b>: il piccolo grafico sotto mostra gli ultimi <b>30 giorni</b>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>I livelli</h3>
+    <table class="tbl">
+      <tr><th>Punteggio</th><th>Livello</th><th>Cosa fare</th></tr>
+      <tr><td>80–100</td><td><span class="chip" style="background:#1f9d55">Pronto</span></td><td>Giornata adatta alla <b>qualità</b>: soglia, VO2max, gara o test.</td></tr>
+      <tr><td>60–79</td><td><span class="chip" style="background:#2f6fde">Buono</span></td><td>Allenamento <b>normale</b>.</td></tr>
+      <tr><td>40–59</td><td><span class="chip" style="background:#d98a00">Attenzione</span></td><td>Solo lavoro <b>facile</b>, fondo in Z2.</td></tr>
+      <tr><td>0–39</td><td><span class="chip" style="background:#d64545">Recupera</span></td><td><b>Riposo</b> o recupero attivo in Z1.</td></tr>
+    </table>
+
+    <h3>I cinque pilastri</h3>
+    <table class="tbl">
+      <tr><th>Pilastro</th><th>Peso</th><th>Cosa misura</th></tr>
+      <tr><td>🔋 <b>Freschezza</b></td><td>30%</td><td><b>Forma</b> (TSB) e <b>ACWR</b>, cioè il rapporto fatica/fitness. Un'uscita <b>indoor</b> intensa nelle ultime 48 ore toglie qualche punto: sui rulli il cuore lavora di più, per il caldo e l'assenza di pause.</td></tr>
+      <tr><td>❤️ <b>Recupero</b></td><td>30%</td><td><b>HRV</b> di stanotte rispetto alla tua media di 60 giorni e al trend di 7 giorni, e <b>FC a riposo</b> rispetto al solito. HRV bassa o battito a riposo alto = corpo non ancora recuperato.</td></tr>
+      <tr><td>😴 <b>Sonno</b></td><td>20%</td><td>Ore dormite <b>stanotte</b> e media delle <b>ultime 3 notti</b>. Il riferimento ideale è intorno alle 7,5 ore.</td></tr>
+      <tr><td>📊 <b>Carico</b></td><td>10%</td><td>Se il carico è <b>sostenibile</b>: crescita della fitness in 7 giorni, <b>monotonia</b> (giorni troppo simili), giorni di fila senza riposo, settimana molto sopra la media.</td></tr>
+      <tr><td>🎯 <b>Qualità</b></td><td>10%</td><td>Come ti alleni: tempo in <b>"zona grigia"</b> (Z3–Z4), equilibrio <b>indoor/outdoor</b>, <b>disaccoppiamento cardiaco</b> nelle uscite di fondo, numero di sedute intense nella settimana.</td></tr>
+    </table>
+
+    <div class="tip"><b>Dati mancanti.</b> Se una notte mancano HRV o sonno, quel pilastro <b>non conta</b> e il suo peso passa agli altri. In fondo alla scheda leggi <i>"Basato su X pilastri su 5"</i>: più pilastri, più il numero è affidabile.</div>
+    <div class="tip warn"><b>Limitatori.</b> Alcuni segnali molto negativi <b>abbassano il tetto</b> del punteggio anche se il resto va bene, perché un buon carico non deve nascondere un campanello d'allarme:
+      <ul><li>HRV oltre il <b>25% sotto</b> la tua media → massimo 45</li><li>meno di <b>5 ore</b> di sonno → massimo 50</li><li>forma sotto <b>-35</b> → massimo 40</li><li>ACWR sopra <b>1,8</b> → massimo 45</li></ul></div>
+    <p>La Readiness guida anche l'<span class="kw">allenamento consigliato</span>: sotto 40 propone riposo o recupero, sotto 60 solo fondo.</p>
+  </section>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section class="g" id="dashboard">
+    <h2>📊 Dashboard</h2>
+    <p class="lead">La pagina principale, dall'alto verso il basso.</p>
+    <h3>Barra delle date</h3>
+    <ul>
+      <li>Scorciatoie <span class="sym">4 sett</span> <span class="sym">3 mesi</span> <span class="sym">6 mesi</span> <span class="sym">Anno</span> <span class="sym">12 mesi</span> <span class="sym">Tutto</span> oppure date <b>Dal / Al</b> a scelta.</li>
+      <li>Il periodo <b>rimodula</b> riquadri, grafici, dischi e i record delle attività. Su telefono la barra resta <b>fissa in alto</b> e diventa compatta mentre scorri; tocca <i>"cambia date"</i> per riaprirla.</li>
+    </ul>
+    <h3>Riquadri del periodo</h3>
+    <div class="grid-mini">
+      <div class="mini"><b class="kw">Fitness · Fatica · Forma</b>Valori alla <b>fine</b> del periodo (vedi sotto).</div>
+      <div class="mini"><b class="kw o">TSS periodo</b>Carico totale delle uscite nel periodo.</div>
+      <div class="mini"><b class="kw">Ore · Km · Dislivello</b>Totali del periodo.</div>
+      <div class="mini"><b class="kw p">FTP</b>Dal tuo profilo intervals, con i <b>W/kg</b>.</div>
+    </div>
+    <h3>Allenamento consigliato</h3>
+    <p>Una riga con <span class="chip" style="background:var(--accent)">OGGI</span>, il nome dell'allenamento e il <b>perché</b>. Con <span class="kw">Dettagli</span> vedi la descrizione e lo schema; con <b>Aggiungi al calendario</b> lo invii a intervals, che lo sincronizza sul tuo dispositivo come allenamento strutturato.</p>
+  </section>
+
+  <section class="g" id="forma">
+    <h2>📈 Fitness · Fatica · Forma</h2>
+    <div class="split">
+      <svg class="fig" viewBox="0 0 170 100" width="170" height="100" aria-hidden="true">
+        <path d="M0 60 C30 58 50 52 80 48 S130 40 170 36" fill="none" stroke="#2f6fde" stroke-width="3"/>
+        <path d="M0 70 C20 40 35 75 55 50 S90 20 110 45 S150 15 170 25" fill="none" stroke="#c2185b" stroke-width="2"/>
+        <path d="M0 85 C25 90 45 70 70 80 S120 95 170 88" fill="none" stroke="#d98a00" stroke-width="2"/>
+        <text x="4" y="12" font-size="10" fill="#2f6fde" font-weight="700">Fitness</text>
+        <text x="60" y="12" font-size="10" fill="#c2185b" font-weight="700">Fatica</text>
+        <text x="112" y="12" font-size="10" fill="#d98a00" font-weight="700">Forma</text>
+      </svg>
+      <ul>
+        <li><span class="kw">Fitness (CTL)</span>: la media del carico degli ultimi <b>42 giorni</b>. Sale lentamente e rappresenta la tua <b>condizione</b>.</li>
+        <li><span class="kw r">Fatica (ATL)</span>: la media del carico degli ultimi <b>7 giorni</b>. Sale e scende in fretta.</li>
+        <li><span class="kw o">Forma (TSB)</span> = Fitness − Fatica. <b>Negativa</b>: stai caricando. Tra <b>+5 e +25</b>: sei fresco, ideale per gare e test. Sotto <b>-30</b>: troppa fatica.</li>
+        <li>I valori arrivano da intervals e comprendono <b>tutti gli sport</b>. Il TSS del giorno lo trovi nel fumetto.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="g" id="consigli">
+    <h2>💡 Consigli</h2>
+    <p class="lead">Divisi in quattro gruppi richiudibili. I <b>pallini colorati</b> riassumono a colpo d'occhio: 🟢 bene · 🔵 informazione · 🟠 attenzione · 🔴 da correggere.</p>
+    <div class="grid-mini">
+      <div class="mini"><b>📈 Carico</b><span class="kw">ACWR</span> (fatica/fitness: ideale 0,8–1,3, sopra 1,5 rischio), settimana rispetto alle 4 precedenti, <b>monotonia</b>, crescita della fitness (ideale 5–7 a settimana).</div>
+      <div class="mini"><b>🛌 Recupero</b>Forma, giorni di fila senza riposo, segnali di <b>HRV</b>, <b>sonno</b> e <b>FC a riposo</b>.</div>
+      <div class="mini"><b>🎯 Tipo di lavoro</b>Sedute intense della settimana (1–2 bastano), presenza di un <b>lungo</b>, distribuzione <b>facile / medio / intenso</b>.</div>
+      <div class="mini"><b>🔮 Previsione</b>Come evolveranno fitness e forma <b>con i workout pianificati</b> su intervals, il giorno più fresco, la forma prevista il <b>giorno della gara</b>.</div>
+    </div>
+  </section>
+
+  <section class="g" id="anno">
+    <h2>🎯 Quest'anno</h2>
+    <div class="split">
+      <svg class="fig" viewBox="0 0 170 60" width="170" height="60" aria-hidden="true">
+        <text x="85" y="16" text-anchor="middle" font-size="14" font-weight="800" fill="var(--text)">6.457 / 8.000 km</text>
+        <rect x="5" y="26" width="160" height="10" rx="5" fill="var(--line)"/>
+        <rect x="5" y="26" width="140" height="10" rx="5" fill="#8891a055"/>
+        <rect x="5" y="28" width="128" height="6" rx="3" fill="#2bb5c4"/>
+        <rect x="137" y="21" width="2" height="20" fill="var(--text)"/><text x="138" y="54" text-anchor="middle" font-size="8" font-weight="800" fill="var(--text)">OGGI</text>
+      </svg>
+      <ul>
+        <li><b>Km dell'anno</b> rispetto al tuo <span class="kw">obiettivo</span>; lo cambi toccando 🎯. Di base è il totale dell'anno scorso.</li>
+        <li>La tacca <b>OGGI</b> indica dove dovresti essere per rispettare il passo; sotto leggi quanti km sei <b>sopra o sotto</b>.</li>
+        <li>La <b>barra chiara</b> è dove eri l'anno scorso alla stessa data.</li>
+        <li>Confronto con l'anno precedente <b>alla stessa data</b> per km, ore, dislivello e uscite (▲ ▼ in percentuale), più il grafico dei <b>km progressivi</b>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="g" id="dischi">
+    <h2>🟣 Livelli di potenza e Zone cardiache</h2>
+    <div class="split">
+      <svg class="fig" viewBox="0 0 120 120" width="150" height="150" aria-hidden="true">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#1f6fd6" stroke-width="6" stroke-dasharray="80 400" transform="rotate(-105 60 60)"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#4ea52a" stroke-width="6" stroke-dasharray="105 400" stroke-dashoffset="-85" transform="rotate(-105 60 60)"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#f07a2d" stroke-width="6" stroke-dasharray="130 400" stroke-dashoffset="-195" transform="rotate(-105 60 60)"/>
+        <polygon points="60,16 92,30 102,60 90,88 60,100 30,90 18,60 30,30" fill="#9b5de5cc"/>
+        <polygon points="60,24 85,36 92,60 84,82 60,90 36,82 28,60 36,36" fill="#f6a8de"/>
+        <circle cx="60" cy="60" r="13" fill="var(--card)"/><text x="60" y="64" text-anchor="middle" font-size="11" font-weight="800" fill="var(--text)">87%</text>
+      </svg>
+      <div>
+        <h3 style="margin-top:0">Livelli di potenza</h3>
+        <ul>
+          <li>Dodici durate da <b>15 secondi a 60 minuti</b>, con i watt del periodo scritti accanto.</li>
+          <li><b>Archi esterni</b>: <span class="kw">blu</span> = sprint (15″–1′), <span class="kw g1">verde</span> = VO2max (2′–10′), <span class="kw o">arancio</span> = soglia (15′–60′).</li>
+          <li>Area piena = il tuo <b>record di sempre</b>; area più chiara sopra = il <b>periodo scelto</b>. I colori a spicchi indicano la <b>zona di potenza</b> in cui cade ogni durata.</li>
+          <li>Al centro, la <b>percentuale media</b> del periodo rispetto al record: più è vicina al 100%, più sei al top.</li>
+        </ul>
+        <h3>Zone cardiache</h3>
+        <ul>
+          <li>Ore passate in ogni <b>zona di battito</b> nel periodo (in rosso) e nel <b>periodo precedente</b> di uguale durata (grigio tratteggiato).</li>
+          <li>Ogni zona ha il suo <b>arco colorato</b>; la scala è "compressa" perché la Z1 non schiacci le zone alte. Nel fumetto trovi le ore esatte e i bpm.</li>
+        </ul>
+        <p class="tip">Passa il dito o il mouse su uno <b>spicchio</b>: il fumetto mostra sempre la voce di quello spicchio.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="g" id="grafici">
+    <h2>📉 Altri grafici della dashboard</h2>
+    <div class="grid-mini">
+      <div class="mini"><b>❤️ Recupero</b>HRV con la tua media di 60 giorni, ore di sonno e FC a riposo.</div>
+      <div class="mini"><b>📊 Carico settimanale</b>TSS (barre) e ore (linea) di ogni settimana del periodo.</div>
+      <div class="mini"><b>📅 Volume mensile</b>Ogni mese dell'anno <b>contro lo stesso mese dell'anno prima</b>, a barre sovrapposte. Interruttore <span class="sym">km</span> <span class="sym">ore</span> <span class="sym">D+</span>.</div>
+      <div class="mini"><b>⚡ Curva di potenza</b>I tuoi migliori watt per ogni durata nel periodo.</div>
+      <div class="mini"><b>🎨 Tempo nelle zone di potenza</b>Ore in Z1…Z7 nel periodo, con Z1 in basso e Z7 in alto.
+        <div class="zbar"><i style="flex:5;background:#8891a0"></i><i style="flex:5;background:#2f6fde"></i><i style="flex:4;background:#1f9d55"></i><i style="flex:2;background:#d98a00"></i><i style="flex:1;background:#e0662b"></i><i style="flex:1;background:#d64545"></i><i style="flex:.5;background:#7b3fbf"></i></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== ATTIVITÀ ===================== -->
+  <section class="g" id="attivita">
+    <h2>🚴 Attività</h2>
+    <p class="lead">Lo storico delle uscite, raggruppato per mese con i totali.</p>
+    <ul>
+      <li>Ogni scheda mostra durata, km, D+, TSS, NP e FC, colorati per categoria.</li>
+      <li><span class="kw g1">▲</span> / <span class="kw r">▼</span> accanto a un valore: è almeno il <b>15% sopra o sotto</b> la media delle tue <b>20 uscite precedenti</b>.</li>
+      <li><b>Badge record 🏆</b>, calcolati sul periodo scelto in dashboard: <span class="sym">📏 km</span> uscita più lunga · <span class="sym">⛰️ D+</span> più dislivello · <span class="sym">⏱️ ore</span> più tempo in sella · <span class="sym">🔥 TSS</span> carico più alto · <span class="sym">⚡ NP</span> potenza normalizzata più alta. Toccali per leggere la spiegazione.</li>
+      <li>La <b>barra colorata</b> in fondo alla scheda mostra il tempo in ogni zona di potenza.</li>
+      <li>Puoi caricare anche file <b>.fit</b> o <b>.json</b> con il pulsante <span class="sym">⬆ Carica</span>.</li>
+    </ul>
+  </section>
+
+  <section class="g" id="dettaglio">
+    <h2>🔍 Dettaglio di un'uscita</h2>
+    <p class="lead">Tocca un'uscita (in Attività, Calendario o Dashboard). Il pulsante ← riporta dove eri.</p>
+    <h3>Riquadri e fumetti</h3>
+    <table class="tbl">
+      <tr><th>Riquadro</th><th>Nel fumetto <span class="sym">ⓘ</span></th></tr>
+      <tr><td>Durata</td><td><span class="sym">⏱</span> tempo totale · <span class="sym">⏸</span> pause</td></tr>
+      <tr><td>Distanza</td><td><span class="sym">↗</span> km in salita · <span class="sym">→</span> in piano · <span class="sym">↘</span> in discesa</td></tr>
+      <tr><td>Velocità media</td><td><span class="sym">▲</span> massima · <span class="sym">▼</span> minima in movimento</td></tr>
+      <tr><td>Dislivello</td><td><span class="sym">▲</span> quota massima · <span class="sym">▼</span> minima</td></tr>
+      <tr><td>Cadenza media</td><td><span class="sym">⟳</span> tempo pedalando · <span class="sym">⏸</span> senza pedalare</td></tr>
+      <tr><td>Disaccoppiamento</td><td>✓ sotto il 5% (buona resistenza) · ⚠ sopra · <b>EF</b> efficienza</td></tr>
+    </table>
+    <h3>Potenza e battito</h3>
+    <ul>
+      <li>Potenza in <span class="kw p">viola</span> e battito in <span class="kw r">rosso</span>, <b>smussati</b> per leggere l'andamento, con l'<b>altimetria</b> in grigio sullo sfondo e la linea della FTP.</li>
+      <li><b>Momenti chiave numerati</b>: salita principale, sprint (5″), migliori 1′, 5′, 20′ e battito massimo. Le zone in viola più intenso sono i tratti dei migliori sforzi; l'elenco completo si apre da <i>"Mostra dettagli"</i>.</li>
+    </ul>
+    <h3>Percorso</h3>
+    <ul>
+      <li>Mappa con partenza <span class="kw g1">verde</span>, arrivo <span class="kw r">rosso</span> e gli stessi <b>numeri</b> dei momenti chiave.</li>
+      <li>Scorrendo sul grafico, un <b>pallino azzurro</b> percorre la mappa e mostra <b>ora</b>, tempo dalla partenza e km.</li>
+    </ul>
+    <h3>Migliori sforzi</h3>
+    <ul>
+      <li>I tuoi migliori watt dell'uscita da 5″ a 60′, con i <b>W/kg</b> e la percentuale del <b>record degli ultimi 90 giorni</b> (🏆 se lo superi).</li>
+      <li>Ogni riquadro è colorato secondo la <b>zona di potenza</b> in cui cade lo sforzo:</li>
+    </ul>
+    <div class="zbar" style="height:22px"><i style="flex:1;background:#8891a0"></i><i style="flex:1;background:#2f6fde"></i><i style="flex:1;background:#1f9d55"></i><i style="flex:1;background:#d98a00"></i><i style="flex:1;background:#e0662b"></i><i style="flex:1;background:#d64545"></i><i style="flex:1;background:#7b3fbf"></i></div>
+    <p style="font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;margin:0"><span>Z1 Recupero</span><span>Z2 Endurance</span><span>Z3 Tempo</span><span>Z4 Soglia</span><span>Z5 VO2max</span><span>Z6 Anaerobico</span><span>Z7 Neuromusc.</span></p>
+  </section>
+
+  <section class="g" id="integrazione">
+    <h2>🍌 Integrazione consigliata</h2>
+    <p class="lead">Nel dettaglio di ogni uscita e di ogni <b>workout pianificato</b> nel calendario.</p>
+    <div class="grid-mini">
+      <div class="mini" style="border-left:3px solid #d98a00"><b>Carboidrati</b>Totale e grammi all'ora: crescono con <b>durata</b> e <b>intensità</b> (fino a 75–90 g/h sopra le 2,5 ore).</div>
+      <div class="mini" style="border-left:3px solid #2bb5c4"><b>Liquidi</b>Litri totali e ml all'ora, di più se l'intensità è alta.</div>
+      <div class="mini" style="border-left:3px solid #8891a0"><b>Sodio</b>mg all'ora; aumenta con il caldo.</div>
+      <div class="mini" style="border-left:3px solid #d64545"><b>Energia</b>kcal spese (≈ kJ di lavoro).</div>
+    </div>
+    <p>Con indicazioni pratiche <b>prima, durante e dopo</b> (es. borracce di bevanda energetica e gel). Sono indicazioni generali, non un piano nutrizionale personalizzato.</p>
+  </section>
+
+  <section class="g" id="calendario">
+    <h2>📅 Calendario</h2>
+    <div class="split">
+      <svg class="fig" viewBox="0 0 160 40" width="160" height="40" aria-hidden="true">
+        <rect width="160" height="40" rx="6" fill="var(--bg)"/>
+        <polygon points="6,34 6,26 28,20 28,34" fill="#2f6fde"/><rect x="28" y="12" width="12" height="22" fill="#d98a00"/><rect x="40" y="28" width="10" height="6" fill="#8891a0"/>
+        <rect x="50" y="12" width="12" height="22" fill="#d98a00"/><rect x="62" y="28" width="10" height="6" fill="#8891a0"/><rect x="72" y="12" width="12" height="22" fill="#d98a00"/>
+        <rect x="84" y="28" width="30" height="6" fill="#8891a0"/><rect x="114" y="4" width="4" height="30" fill="#e0662b"/><rect x="122" y="4" width="4" height="30" fill="#e0662b"/>
+        <polygon points="130,34 130,28 154,30 154,34" fill="#8891a0"/>
+      </svg>
+      <ul>
+        <li>Vista mensile: le uscite fatte <span class="kw">✓</span>, i workout pianificati con il <b>mini schema</b> (larghezza = durata, altezza = intensità, colore = zona), le gare 🏁.</li>
+        <li>Toccando un workout vedi lo schema grande, la descrizione e l'<b>integrazione</b>. Su telefono si apre <b>sul posto</b>.</li>
+        <li><b>Totali della settimana</b>: fatto e previsto, con un'etichetta di <b>passo</b>: <span class="chip" style="background:#1f9d55">▲ al passo</span> almeno 90% · <span class="chip" style="background:#d98a00">un po' sotto</span> 70–90% · <span class="chip" style="background:#d64545">▼ sotto</span> meno del 70%. Per la settimana in corso il confronto è con il previsto <b>fino a oggi</b>.</li>
+        <li>Puoi scegliere l'ordine, dal più vecchio o dal più recente, in Impostazioni.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="g" id="impostazioni">
+    <h2>⚙️ Impostazioni</h2>
+    <ul>
+      <li><b>intervals.icu</b>: ID atleta, chiave API ed eventuale proxy.</li>
+      <li><b>Aspetto</b>: tema Automatico / Chiaro / Scuro e ordine del calendario.</li>
+      <li><b>Soglie</b>: FTP, FC di soglia e peso. Si aggiornano da intervals a ogni sincronizzazione.</li>
+      <li><b>Dati</b>: esporta lo storico o cancella i dati salvati sul dispositivo.</li>
+    </ul>
+    <p class="tip"><b>HRV e sonno dall'Apple Watch</b>: arrivano a intervals con il comando rapido giornaliero; lo storico si recupera una volta con lo script <code>tools/salute_a_intervals.py</code>.</p>
+  </section>
+
+  <!-- ===================== GLOSSARIO ===================== -->
+  <section class="g" id="glossario">
+    <h2>📖 Glossario</h2>
+    <table class="tbl">
+      <tr><td><b>FTP</b></td><td>Potenza che riesci a mantenere per circa un'ora: il riferimento per tutte le zone.</td></tr>
+      <tr><td><b>NP</b></td><td>Potenza normalizzata: tiene conto dei cambi di ritmo, più "faticosa" della media semplice.</td></tr>
+      <tr><td><b>IF</b></td><td>Intensità = NP / FTP. 0,75 fondo · 0,85 medio · oltre 0,95 molto intenso.</td></tr>
+      <tr><td><b>TSS</b></td><td>Carico di un'uscita: combina durata e intensità. Un'ora a FTP = 100.</td></tr>
+      <tr><td><b>VI</b></td><td>Variabilità = NP / potenza media. Vicino a 1 = andatura regolare.</td></tr>
+      <tr><td><b>CTL / ATL / TSB</b></td><td>Fitness (42 giorni) · Fatica (7 giorni) · Forma = Fitness − Fatica.</td></tr>
+      <tr><td><b>ACWR</b></td><td>Fatica / Fitness: quanto il carico recente supera quello abituale. Ideale 0,8–1,3.</td></tr>
+      <tr><td><b>Monotonia</b></td><td>Quanto sono simili i carichi dei giorni: sopra 2 manca alternanza tra giorni duri e facili.</td></tr>
+      <tr><td><b>HRV</b></td><td>Variabilità della frequenza cardiaca, misurata di notte: più alta del tuo solito = recuperato.</td></tr>
+      <tr><td><b>Disaccoppiamento</b></td><td>Quanto sale il battito a parità di potenza tra prima e seconda metà di un'uscita costante. Sotto il 5% = buona resistenza aerobica.</td></tr>
+      <tr><td><b>EF</b></td><td>Efficienza = NP / FC media: più è alta, più watt produci per battito.</td></tr>
+      <tr><td><b>Zona grigia</b></td><td>Z3–Z4: troppo dura per recuperare, troppo facile per migliorare molto. Meglio tanto Z2 e poche sedute intense.</td></tr>
+    </table>
+  </section>
+
+  <a class="g-back" href="./">← Torna all'app</a>
+</div>
+</body>
+</html>
