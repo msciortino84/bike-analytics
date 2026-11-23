@@ -50,10 +50,33 @@ export function suggestWorkout(pmcData, activities, events, wstat, ready) {
   const daysToRace = race ? Math.ceil((race.date - Date.now()) / 864e5) : null;
   let pick;
 
-  // La Prontezza ha la precedenza: sotto 40 recupero, sotto 60 solo fondo
+  // Allenamenti già pianificati nei prossimi 2 giorni: un lavoro duro domani o dopodomani
+  // esclude la qualità oggi, per arrivarci freschi.
+  const day0 = new Date(); day0.setHours(0, 0, 0, 0);
+  const next = events
+    .filter(e => (e.category === 'WORKOUT' || /RACE/.test(e.category || '')) && e.date >= day0.getTime() + 864e5 && e.date < day0.getTime() + 3 * 864e5)
+    .map(e => {
+      const h = (e.duration || 0) / 3600;
+      const IF = e.load && h ? Math.sqrt(e.load / h / 100) : 0;
+      const dIn = Math.round((new Date(e.date).setHours(0, 0, 0, 0) - day0.getTime()) / 864e5);
+      return { ...e, IF, dIn, hard: /RACE/.test(e.category || '') || IF >= 0.85 || (e.load || 0) >= 90 || h >= 3 };
+    }).sort((x, y) => x.date - y.date);
+  const nextHard = next.find(e => e.hard);
+  const when = e => (e.dIn === 1 ? 'domani' : 'dopodomani');
+  const nm = e => String(e.name || '').replace(/^\d{4}-\d{2}-\d{2}\s*-?\s*/, '');
+  const nextNote = nextHard ? `${when(nextHard)} hai "${nm(nextHard)}"${nextHard.load ? ` (${nextHard.load} TSS)` : ''}` : null;
+
+  // La Readiness ha la precedenza: sotto 40 recupero, sotto 60 solo fondo
   if (ready && ready.score < 60 && !(daysToRace != null && daysToRace <= 1)) {
-    pick = ready.score < 25 ? 'rest' : ready.score < 40 ? 'recovery' : 'endurance';
+    pick = ready.score < 25 ? 'rest' : ready.score < 40 || (nextHard && nextHard.dIn === 1) ? 'recovery' : 'endurance';
     reasons.push(`Readiness ${ready.score} (${ready.level.name.toLowerCase()})`);
+    if (nextNote) reasons.push(`${nextNote}: arrivaci recuperato`);
+    return { key: pick, ...WORKOUTS[pick], reasons };
+  }
+  if (nextHard && !(daysToRace != null && daysToRace <= 1)) {
+    // domani duro: oggi recupero o fondo breve; dopodomani duro: fondo, niente qualità
+    pick = nextHard.dIn === 1 ? (tsb < -15 ? 'recovery' : 'endurance') : 'endurance';
+    reasons.push(`${nextNote}: oggi niente lavori intensi`);
     return { key: pick, ...WORKOUTS[pick], reasons };
   }
   if (daysToRace != null && daysToRace <= 1) { pick = 'openers'; reasons.push(`gara "${race.name}" ${daysToRace <= 0 ? 'oggi' : 'domani'}`); }

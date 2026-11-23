@@ -700,6 +700,8 @@ async function render() {
   drawReadiness(ready, ready ? readinessHistory(rArgs, 30) : []);
   const wo = suggestWorkout(p, acts, events, wstat, ready);
   const plannedToday = events.find(e => e.category === 'WORKOUT' && startOfDay(e.date) === startOfDay(Date.now()));
+  // Se oggi c'è già un allenamento in calendario la scheda non serve: si nasconde
+  $('workout').hidden = !!plannedToday && acts.length > 0;
   if (!acts.length) {
     $('workout').innerHTML = `<h2>Benvenuto</h2>
       <div>Per iniziare vai in <b>Impostazioni</b>, inserisci ID atleta e chiave di intervals.icu e premi <b>Accedi e sincronizza</b>.
