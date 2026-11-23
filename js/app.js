@@ -697,6 +697,7 @@ async function render() {
   // Indice di Prontezza (oggi) e andamento degli ultimi 30 giorni
   const rArgs = { pmc: p, wellness, activities: acts };
   const ready = acts.length ? computeReadiness(rArgs) : null;
+  aiCtx = { p, ready, wellness, events, acts };
   drawReadiness(ready, ready ? readinessHistory(rArgs, 30) : []);
   const wo = suggestWorkout(p, acts, events, wstat, ready);
   const plannedToday = events.find(e => e.category === 'WORKOUT' && startOfDay(e.date) === startOfDay(Date.now()));
@@ -1089,6 +1090,52 @@ function downsample(arr, n = 600) {
   return out;
 }
 
+// ---------- Chiedi a Claude: riassunto pronto da incollare in chat ----------
+let aiCtx = null;
+function claudePrompt(a, kpiList) {
+  const D = 864e5, day = startOfDay(a.date), f1 = x => x == null ? '–' : Math.round(x);
+  const L = [];
+  L.push(`Sono un ciclista (FTP ${settings.ftp || '?'} W, soglia FC ${settings.lthr || '?'} bpm, peso ${settings.weight || '?'} kg).`);
+  L.push(`Analizza la mia uscita come un coach: com'è andata, cosa dice sul mio stato di forma, eventuali segnali di fatica e cosa fare nei prossimi giorni. Rispondi in italiano, in modo concreto.`);
+  L.push('', `## Uscita: ${a.name} · ${fmtDate(a.date)}${a.indoor ? ' (indoor)' : ''}`);
+  kpiList.forEach(([l, v, , tip]) => L.push(`- ${l}: ${v}${tip ? ` (${tip})` : ''}`));
+  if (a.zones?.some(Boolean)) {
+    const tot = a.zones.reduce((x, y) => x + y, 0);
+    L.push(`- Zone potenza: ${a.zones.map((z, i) => `Z${i + 1} ${Math.round(z / tot * 100)}%`).join(' · ')}`);
+  }
+  if (aiCtx) {
+    const { p, ready, wellness, events, acts } = aiCtx;
+    const pd = p.find(d => d.date === day);
+    if (pd) L.push('', `## Carico a fine giornata`, `- Fitness (CTL) ${f1(pd.ctl)} · Fatica (ATL) ${f1(pd.atl)} · Forma (TSB) ${f1(pd.tsb)}`);
+    const well = wellness.filter(w => w.date > day - 7 * D && w.date <= day + D).sort((x, y) => x.date - y.date);
+    if (well.length) {
+      L.push('', '## Benessere (ultimi giorni)');
+      well.forEach(w => L.push(`- ${fmtDate(w.date)}: HRV ${w.hrv ?? '–'} · FC riposo ${w.restingHR ?? '–'} · sonno ${w.sleepSecs ? (w.sleepSecs / 3600).toFixed(1) + ' h' : '–'}`));
+    }
+    const prev = acts.filter(x => x.date < a.date && x.date >= day - 28 * D);
+    if (prev.length) {
+      L.push('', `## Ultime 4 settimane prima di questa uscita (${prev.length} uscite)`);
+      prev.slice(0, 12).forEach(x => L.push(`- ${fmtDate(x.date)} ${x.name}: ${fmtDur(x.movingTime)}, TSS ${x.tss ?? '–'}, IF ${x.ifactor ?? '–'}${x.indoor ? ', indoor' : ''}`));
+    }
+    if (ready && day >= startOfDay(Date.now()) - D) { // solo per uscite di oggi o ieri
+      L.push('', `## Readiness di oggi: ${ready.score}/100`, `- ${ready.sentence}`);
+      ready.pillars.filter(x => x.score != null).forEach(x => L.push(`- ${x.name}: ${x.score}${x.note ? ` (${x.note})` : ''}`));
+    }
+    const next = events.filter(e => e.date >= day + D && e.date < day + 8 * D);
+    if (next.length) {
+      L.push('', '## In calendario nei 7 giorni successivi');
+      next.forEach(e => L.push(`- ${fmtDate(e.date)}: ${e.name || e.category}${e.load ? `, ${e.load} TSS` : ''}`));
+    }
+  }
+  return L.join(String.fromCharCode(10));
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {}
+  const ta = Object.assign(document.createElement('textarea'), { value: t });
+  document.body.append(ta); ta.select();
+  const ok = document.execCommand('copy'); ta.remove(); return ok;
+}
+
 async function openDetail(a) {
   if (!a) return;
   showTab('detail');
@@ -1128,7 +1175,7 @@ async function openDetail(a) {
   const kj = hasPower ? Math.round(power.reduce((x, y) => x + y, 0) / 1000) : null;
   const vi = hasPower && a.avgPower ? (np / a.avgPower).toFixed(2) : null;
   const speed = a.movingTime ? (a.distance / a.movingTime) * 3.6 : 0;
-  $('dKpis').innerHTML = [
+  const kpiList = [
     // Ordinati per categoria: percorso, carico, potenza, battito, cadenza
     ['Durata', fmtDur(a.movingTime), 'time', tipDur], ['Distanza', `${(a.distance / 1000).toFixed(1)} km`, 'time', terrain.tipKm],
     ['Dislivello', `${Math.round(a.ascent || 0)} m`, 'time', terrain.tipAlt], ['Velocità media', `${speed.toFixed(1)} km/h`, 'time', terrain.tipSpeed],
@@ -1138,7 +1185,15 @@ async function openDetail(a) {
     ['FC media / max', a.avgHr ? `${a.avgHr} / ${maxHr}` : '–', 'hr'],
     ...(a.decoupling != null ? [['Disaccoppiamento', `${a.decoupling.toFixed(1)}%`, 'hr', `${Math.abs(a.decoupling) < 5 ? '✓ < 5%' : '⚠ > 5%'}${a.ef ? ` · EF ${a.ef.toFixed(2)}` : ''}`]] : []),
     ['Cadenza media', cads.length ? Math.round(cads.reduce((x, y) => x + y, 0) / cads.length) + ' rpm' : '–', 'cad', tipCad],
-  ].map(kpi).join('');
+  ];
+  $('dKpis').innerHTML = kpiList.map(kpi).join('');
+  $('askClaude').hidden = false;
+  $('askClaude').onclick = async () => {
+    const ok = await copyText(claudePrompt(a, kpiList));
+    $('askHint').textContent = ok ? '✓ Copiato: incollalo nella chat con Claude' : 'Copia non riuscita';
+    if (ok) window.open('https://claude.ai/new', '_blank');
+  };
+  $('askHint').textContent = '';
 
   // Integrazione consigliata per durata e intensità di questa uscita
   const fuel = fuelPlan({ secs: a.movingTime, ifactor: a.ifactor || (np && settings.ftp ? np / settings.ftp : null), weight: settings.weight, kj });

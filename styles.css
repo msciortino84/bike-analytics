@@ -446,3 +446,6 @@ h1.brand img { display: block; filter: drop-shadow(0 0 6px #ffd16655); }
 .help-btn { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line);
   color: var(--muted); font-weight: 800; text-decoration: none; font-size: 15px; }
 .help-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+.ask-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.ask-btn { background: #d97757; color: #fff; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
