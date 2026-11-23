@@ -50,10 +50,10 @@ export function computeReadiness({ pmc, wellness, activities, day }) {
   const caps = [];
 
   // ---------- 🔋 Freschezza: forma (TSB) e rapporto fatica/fitness ----------
-  // La forma del giorno usa i valori della sera prima
-  const prev = pmc[idx - 1];
-  const tsb = prev.ctl - prev.atl;
-  const acwr = prev.ctl > 0 ? prev.atl / prev.ctl : 1;
+  // Stessa forma mostrata nei riquadri della dashboard (valori di intervals del giorno)
+  const cur = pmc[idx];
+  const tsb = cur.ctl - cur.atl;
+  const acwr = cur.ctl > 0 ? cur.atl / cur.ctl : 1;
   let fresh = lerp(tsb, [[-40, 5], [-30, 20], [-20, 40], [-10, 65], [0, 85], [10, 100], [25, 95], [40, 75]]);
   if (acwr > 1.5) fresh -= 20; else if (acwr > 1.3) fresh -= 8;
   // Indoor: a parità di TSS il cuore lavora di più (caldo, nessuna pausa)
@@ -67,7 +67,9 @@ export function computeReadiness({ pmc, wellness, activities, day }) {
   // ---------- ❤️ Recupero fisiologico: HRV e FC a riposo rispetto alla tua media ----------
   const last = well.filter(w => w.date >= t - D);
   const todayW = last[last.length - 1] || null;
-  const base = (k, days) => well.filter(w => w.date < (todayW?.date ?? t + 1) && w.date >= t - days * D && w[k] > 0).map(w => w[k]);
+  // Valori plausibili: la FC "a riposo" sopra 90 bpm non è una misura a riposo (dati vecchi senza orologio di notte)
+  const ok = (k, v) => v > 0 && (k !== 'restingHR' || (v >= 30 && v <= 90));
+  const base = (k, days) => well.filter(w => w.date < (todayW?.date ?? t + 1) && w.date >= t - days * D && ok(k, w[k])).map(w => w[k]);
   const parts = [], bodyNotes = [];
   const hb = base('hrv', 60);
   if (todayW?.hrv && hb.length >= 7) {
@@ -82,7 +84,7 @@ export function computeReadiness({ pmc, wellness, activities, day }) {
     if (dev < -0.25) caps.push({ cap: 45, why: `HRV ${Math.round(-dev * 100)}% sotto la tua media` });
   }
   const rb = base('restingHR', 60);
-  if (todayW?.restingHR && rb.length >= 7) {
+  if (ok('restingHR', todayW?.restingHR) && rb.length >= 7) {
     const d = todayW.restingHR - avg(rb);
     parts.push(clamp(80 - d * 6));
     bodyNotes.push(`FC riposo ${todayW.restingHR} (${d >= 0 ? '+' : ''}${Math.round(d)})`);
