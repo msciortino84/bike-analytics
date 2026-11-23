@@ -48,10 +48,16 @@ def parse_dt(s):
 def open_export(path):
     if path.lower().endswith(".zip"):
         z = zipfile.ZipFile(path)
-        name = next((n for n in z.namelist() if n.endswith("export.xml") and "cda" not in n.lower()), None)
-        if not name:
-            sys.exit("Nel file zip non trovo export.xml: è proprio l'esportazione di Salute?")
+        # Il nome dipende dalla lingua dell'iPhone ("export.xml", "dati esportati.xml", ...):
+        # si prende il file XML più grande, escludendo export_cda.xml (formato clinico)
+        xmls = [i for i in z.infolist() if i.filename.lower().endswith(".xml") and "cda" not in i.filename.lower()]
+        if not xmls:
+            sys.exit("Nel file zip non trovo i dati di Salute: è proprio l'esportazione di Salute?")
+        name = max(xmls, key=lambda i: i.file_size).filename
+        print(f"  file dati: {name}")
         return z.open(name)
+    if "cda" in path.lower():
+        sys.exit("export_cda.xml è il formato clinico: usa l'altro file XML (es. 'dati esportati.xml').")
     return open(path, "rb")
 
 
