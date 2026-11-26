@@ -690,12 +690,17 @@ async function render() {
     let prev = null;
     p = p.map(d => {
       const w = ofDay.get(d.date);
-      let ctl, atl;
-      if (w?.ctl != null && w.atl != null) ({ ctl, atl } = w);
-      else if (prev) { const kc = 1 - Math.exp(-1 / 42), ka = 1 - Math.exp(-1 / 7); ctl = prev.ctl + (d.load - prev.ctl) * kc; atl = prev.atl + (d.load - prev.atl) * ka; }
+      const kc = 1 - Math.exp(-1 / 42), ka = 1 - Math.exp(-1 / 7);
+      let ctl, atl, load = d.load;
+      if (w?.ctl != null && w.atl != null) {
+        // intervals dà i valori a inizio giornata + il carico del giorno (tutti gli sport): li portiamo a fine giornata
+        if (w.ctlLoad != null) load = w.ctlLoad;
+        ctl = w.ctl + ((w.ctlLoad ?? 0) - w.ctl) * kc;
+        atl = w.atl + ((w.atlLoad ?? 0) - w.atl) * ka;
+      } else if (prev) { ctl = prev.ctl + (load - prev.ctl) * kc; atl = prev.atl + (load - prev.atl) * ka; }
       else return d;
       prev = { ctl, atl };
-      return { ...d, ctl, atl, tsb: ctl - atl };
+      return { ...d, load, ctl, atl, tsb: ctl - atl };
     });
   }
   const last = p[p.length - 1] || { ctl: 0, atl: 0 };
