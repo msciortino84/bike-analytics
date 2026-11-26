@@ -120,6 +120,7 @@ async function sync({ auto = false } = {}) {
     const prev = new Map((await getAll()).map(a => [a.id, a]));
     for (const a of acts) await putAct(prev.get(a.id)?.streams ? { ...a, streams: prev.get(a.id).streams } : a);
     await kvSet('events', events);
+    await kvSet('dayLoads', acts.dayLoads);
     await kvSet('curve', curve);
     await kvSet('wellness', await fetchWellness(settings, 1100).catch(() => []));
     await kvSet('lastSync', Date.now());
@@ -683,24 +684,25 @@ async function render() {
   // altrimenti li calcoliamo dalle uscite salvate.
   const wellness = (await kvGet('wellness')) || [];
   let p = pmc(acts, Infinity);
+  const dayLoads = await kvGet('dayLoads');
   if (wellness.length) {
+    // Come intervals: carico giornaliero di tutti gli sport, decadimento esponenziale 42/7 giorni,
+    // partendo da un valore ufficiale di intervals di ~120 giorni fa (lo scarto iniziale si azzera nel tempo).
+    // Senza carichi di tutti gli sport (sync vecchia) usa i valori di intervals giorno per giorno.
     const ofDay = new Map(wellness.map(w => [startOfDay(w.date), w]));
-    // intervals restituisce solo i giorni che hanno una riga di benessere: per i giorni mancanti
-    // (es. oggi, prima che arrivino HRV/sonno) proseguiamo dall'ultimo valore ufficiale con lo stesso decadimento.
+    const kc = 1 - Math.exp(-1 / 42), ka = 1 - Math.exp(-1 / 7);
+    const seedFrom = startOfDay(Date.now()) - 120 * 864e5;
+    const key = t => { const x = new Date(t); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
     let prev = null;
     p = p.map(d => {
       const w = ofDay.get(d.date);
-      const kc = 1 - Math.exp(-1 / 42), ka = 1 - Math.exp(-1 / 7);
-      let ctl, atl, load = d.load;
-      if (w?.ctl != null && w.atl != null) {
-        // intervals dà i valori a inizio giornata + il carico del giorno (tutti gli sport): li portiamo a fine giornata
-        if (w.ctlLoad != null) load = w.ctlLoad;
-        ctl = w.ctl + ((w.ctlLoad ?? 0) - w.ctl) * kc;
-        atl = w.atl + ((w.atlLoad ?? 0) - w.atl) * ka;
-      } else if (prev) { ctl = prev.ctl + (load - prev.ctl) * kc; atl = prev.atl + (load - prev.atl) * ka; }
-      else return d;
-      prev = { ctl, atl };
-      return { ...d, load, ctl, atl, tsb: ctl - atl };
+      const hasW = w?.ctl != null && w.atl != null;
+      if (!dayLoads && hasW) { prev = { ctl: w.ctl, atl: w.atl }; return { ...d, ...prev, tsb: w.ctl - w.atl }; }
+      if (dayLoads && !prev && hasW && d.date >= seedFrom) prev = { ctl: w.ctl, atl: w.atl };
+      if (!prev) return d;
+      const load = dayLoads ? (dayLoads[key(d.date)] || 0) : d.load;
+      prev = { ctl: prev.ctl + (load - prev.ctl) * kc, atl: prev.atl + (load - prev.atl) * ka };
+      return { ...d, load, ...prev, tsb: prev.ctl - prev.atl };
     });
   }
   const last = p[p.length - 1] || { ctl: 0, atl: 0 };

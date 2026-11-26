@@ -27,7 +27,13 @@ export async function fetchAthlete(settings) {
 
 export async function fetchActivities(settings, days = 365) {
   const list = await call(settings, `/activities?oldest=${iso(Date.now() - days * 864e5)}&newest=${iso(Date.now() + 864e5)}`);
-  return list
+  // Carico giornaliero di TUTTI gli sport (corsa, palestra…), per Fitness/Fatica come intervals
+  const dayLoads = {};
+  for (const a of list) if (a.icu_training_load) {
+    const k = (a.start_date_local || '').slice(0, 10);
+    dayLoads[k] = (dayLoads[k] || 0) + a.icu_training_load;
+  }
+  const rides = list
     .filter(a => /Ride/i.test(a.type || ''))
     .map(a => ({
       id: 'icu-' + a.id,
@@ -50,6 +56,8 @@ export async function fetchActivities(settings, days = 365) {
       decoupling: a.decoupling ?? null,      // % di deriva del battito a parità di potenza
       ef: a.icu_efficiency_factor ?? null,   // efficienza: NP / FC media
     }));
+  rides.dayLoads = dayLoads;
+  return rides;
 }
 
 export async function fetchEvents(settings, daysBack = 70, daysAhead = 70) {
