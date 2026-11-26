@@ -774,8 +774,8 @@ async function render() {
   const wkg = settings.ftp && settings.weight ? (settings.ftp / settings.weight).toFixed(2) : null;
   const endLbl = R.to >= startOfDay(Date.now()) ? '' : ` al ${new Date(R.to).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}`;
   $('kpis').innerHTML = [
-    ['Fitness (CTL)' + endLbl, end.ctl.toFixed(0), 'fit'], ['Fatica (ATL)' + endLbl, end.atl.toFixed(0), 'fat'],
-    ['Forma (TSB)' + endLbl, (end.ctl - end.atl).toFixed(0), 'form'], ['TSS periodo', sum(ra, 'tss').toFixed(0), 'load'],
+    ['Fitness (CTL)' + endLbl, Math.round(end.ctl), 'fit'], ['Fatica (ATL)' + endLbl, Math.round(end.atl), 'fat'],
+    ['Forma (TSB)' + endLbl, Math.round(end.ctl - end.atl), 'form'], ['TSS periodo', sum(ra, 'tss').toFixed(0), 'load'],
     ['Ore periodo', fmtDur(sum(ra, 'movingTime')), 'time'], ['Km periodo', (sum(ra, 'distance') / 1000).toFixed(0), 'time'],
     ['Dislivello periodo', `${Math.round(sum(ra, 'ascent')).toLocaleString('it-IT')} m`, 'time'],
     ['FTP' + (wkg ? ` · ${wkg} W/kg` : ''), settings.ftp ? `${settings.ftp} W` : '–', 'power'],
