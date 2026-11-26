@@ -685,9 +685,17 @@ async function render() {
   let p = pmc(acts, Infinity);
   if (wellness.length) {
     const ofDay = new Map(wellness.map(w => [startOfDay(w.date), w]));
+    // intervals restituisce solo i giorni che hanno una riga di benessere: per i giorni mancanti
+    // (es. oggi, prima che arrivino HRV/sonno) proseguiamo dall'ultimo valore ufficiale con lo stesso decadimento.
+    let prev = null;
     p = p.map(d => {
       const w = ofDay.get(d.date);
-      return w?.ctl != null && w.atl != null ? { ...d, ctl: w.ctl, atl: w.atl, tsb: w.ctl - w.atl } : d;
+      let ctl, atl;
+      if (w?.ctl != null && w.atl != null) ({ ctl, atl } = w);
+      else if (prev) { ctl = prev.ctl + (d.load - prev.ctl) / 42; atl = prev.atl + (d.load - prev.atl) / 7; }
+      else return d;
+      prev = { ctl, atl };
+      return { ...d, ctl, atl, tsb: ctl - atl };
     });
   }
   const last = p[p.length - 1] || { ctl: 0, atl: 0 };

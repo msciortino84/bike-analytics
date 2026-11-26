@@ -2,7 +2,7 @@
 // Autenticazione: Basic con utente "API_KEY" e password = la chiave personale.
 const BASE = 'https://intervals.icu/api/v1';
 
-function iso(d) { return new Date(d).toISOString().slice(0, 10); }
+function iso(d) { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; } // data locale, non UTC
 
 function call(settings, path, opts) {
   return callRaw(settings, `/athlete/${settings.athleteId || '0'}${path}`, opts);
