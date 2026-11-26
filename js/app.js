@@ -692,7 +692,7 @@ async function render() {
       const w = ofDay.get(d.date);
       let ctl, atl;
       if (w?.ctl != null && w.atl != null) ({ ctl, atl } = w);
-      else if (prev) { ctl = prev.ctl + (d.load - prev.ctl) / 42; atl = prev.atl + (d.load - prev.atl) / 7; }
+      else if (prev) { const kc = 1 - Math.exp(-1 / 42), ka = 1 - Math.exp(-1 / 7); ctl = prev.ctl + (d.load - prev.ctl) * kc; atl = prev.atl + (d.load - prev.atl) * ka; }
       else return d;
       prev = { ctl, atl };
       return { ...d, ctl, atl, tsb: ctl - atl };
@@ -795,7 +795,7 @@ async function render() {
     },
     options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } } },
       // Il TSS del giorno resta solo nel fumetto
-      plugins: { tooltip: { callbacks: { footer: t => `TSS del giorno: ${Math.round(pR[t[0].dataIndex]?.load || 0)}` } } } },
+      plugins: { tooltip: { callbacks: { label: t => `${t.dataset.label}: ${t.parsed.y.toFixed(1)}`, footer: t => `TSS del giorno: ${Math.round(pR[t[0].dataIndex]?.load || 0)}` } } } },
   });
 
   // Settimanale: tutte le settimane del periodo
