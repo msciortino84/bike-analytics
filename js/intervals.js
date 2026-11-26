@@ -73,7 +73,7 @@ export async function fetchWellness(settings, days = 180) {
   const list = await call(settings, `/wellness?oldest=${iso(Date.now() - days * 864e5)}&newest=${iso(Date.now())}`);
   return list
     .map(w => ({
-      date: new Date(w.id + 'T00:00:00').getTime(), ctl: w.ctl ?? null, atl: w.atl ?? null,
+      date: new Date(w.id + 'T00:00:00').getTime(), ctl: w.ctl ?? null, atl: w.atl ?? null, ctlLoad: w.ctlLoad ?? null, atlLoad: w.atlLoad ?? null,
       hrv: w.hrv ?? null, restingHR: w.restingHR ?? null, weight: w.weight ?? null,
       sleepSecs: w.sleepSecs ?? null, sleepScore: w.sleepScore ?? null,
     }));
