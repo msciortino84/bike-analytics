@@ -354,6 +354,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
 
 /* Su telefono le schede affiancate non devono allargare la pagina */
 .grid2 > * { min-width: 0; }
+/* Una scheda chiusa non resta alta come quella accanto */
+.grid2 { align-items: start; }
 .chart canvas { max-width: 100%; }
 
 /* Fumetto sui badge record (mouse o tocco) */

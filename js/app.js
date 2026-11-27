@@ -895,7 +895,7 @@ async function render() {
         { label: '', data: wl.map(() => +wstat.hrvBand[0].toFixed(1)), borderColor: '#1f9d5533', borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
       ] : []),
       { label: 'Sonno (h)', type: 'bar', data: wl.map(w => w.sleepSecs ? +(w.sleepSecs / 3600).toFixed(1) : null), backgroundColor: '#5b8ff055', yAxisID: 'y2' },
-      { label: 'FC riposo', data: wl.map(w => w.restingHR), borderColor: '#d64545', spanGaps: true, pointRadius: 0, tension: .3, borderWidth: 1.5 },
+      { label: 'FC riposo', data: wl.map(w => (w.restingHR >= 30 && w.restingHR <= 90 ? w.restingHR : null)), borderColor: '#d64545', spanGaps: true, pointRadius: 0, tension: .3, borderWidth: 1.5 },
     ] },
     options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false }, min: 0, max: 12 } },
       plugins: { legend: { labels: { filter: i => i.text } }, tooltip: { filter: i => i.dataset.label } } },
