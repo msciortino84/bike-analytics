@@ -761,12 +761,18 @@ async function render() {
   if (!$('wellCard').hidden) chart('wellChart', {
     type: 'line',
     data: { labels: wl.map(w => new Date(w.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [
-      { label: 'HRV (ms)', data: wl.map(w => w.hrv), borderColor: '#1f9d55', spanGaps: true, pointRadius: 0, tension: .3 },
-      { label: 'Media HRV 60 gg', data: wl.map(() => wstat.hrvBase), borderColor: '#1f9d5566', borderDash: [4, 4], pointRadius: 0 },
+      // Notte per notte (punti leggeri), media mobile 7 gg (linea piena) e fascia normale ±0,5 dev. st.
+      { label: 'HRV notte', data: wl.map(w => w.hrv), borderColor: 'transparent', backgroundColor: '#1f9d5577', showLine: false, pointRadius: 2.5 },
+      { label: 'HRV media 7 gg', data: wl.map(w => { const v = wellness.filter(x => x.hrv > 0 && x.date > w.date - 7 * 864e5 && x.date <= w.date).map(x => Math.log(x.hrv)); return v.length >= 3 ? +Math.exp(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : null; }), borderColor: '#1f9d55', spanGaps: true, pointRadius: 0, tension: .3, borderWidth: 2 },
+      ...(wstat.hrvBand ? [
+        { label: 'Fascia normale', data: wl.map(() => +wstat.hrvBand[1].toFixed(1)), borderColor: '#1f9d5533', borderDash: [4, 4], pointRadius: 0, borderWidth: 1, fill: '+1', backgroundColor: '#1f9d5514' },
+        { label: '', data: wl.map(() => +wstat.hrvBand[0].toFixed(1)), borderColor: '#1f9d5533', borderDash: [4, 4], pointRadius: 0, borderWidth: 1 },
+      ] : []),
       { label: 'Sonno (h)', type: 'bar', data: wl.map(w => w.sleepSecs ? +(w.sleepSecs / 3600).toFixed(1) : null), backgroundColor: '#5b8ff055', yAxisID: 'y2' },
       { label: 'FC riposo', data: wl.map(w => w.restingHR), borderColor: '#d64545', spanGaps: true, pointRadius: 0, tension: .3, borderWidth: 1.5 },
     ] },
-    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false }, min: 0, max: 12 } } },
+    options: { interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } }, y2: { position: 'right', grid: { display: false }, min: 0, max: 12 } },
+      plugins: { legend: { labels: { filter: i => i.text } }, tooltip: { filter: i => i.dataset.label } } },
   });
 
   // KPI: fitness/fatica/forma alla fine del periodo, totali del periodo

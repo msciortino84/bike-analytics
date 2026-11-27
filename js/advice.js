@@ -4,19 +4,28 @@ const avg = a => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
 export function wellnessStatus(wellness) {
   const days = [...wellness].sort((a, b) => a.date - b.date);
   const today = days.filter(d => d.date > Date.now() - 2 * 864e5).pop() || null; // oggi o ieri
-  const base = (k, n) => avg(days.filter(d => d.date < (today?.date ?? Infinity) && d.date > Date.now() - n * 864e5 && d[k] != null).map(d => d[k]));
-  const hrvBase = base('hrv', 60), rhrBase = base('restingHR', 60);
-  const hrv7 = avg(days.filter(d => d.date > Date.now() - 7 * 864e5 && d.hrv != null).map(d => d.hrv));
-  const res = { today, hrvBase, rhrBase, hrv7, flags: [] };
-  if (today?.hrv && hrvBase) {
-    const dev = (today.hrv - hrvBase) / hrvBase;
-    res.hrvDev = dev;
-    if (dev < -0.15) res.flags.push({ level: 'bad', key: 'hrv', text: `HRV ${Math.round(today.hrv)} ms, ${Math.round(-dev * 100)}% sotto la tua media (${Math.round(hrvBase)}): il corpo non ha recuperato. Oggi solo recupero o riposo.` });
-    else if (dev < -0.07) res.flags.push({ level: 'ok', key: 'hrv', text: `HRV ${Math.round(today.hrv)} ms, un po' sotto la media (${Math.round(hrvBase)}): evita lavori molto intensi.` });
-    else res.flags.push({ level: 'good', key: 'hrvok', text: `HRV ${Math.round(today.hrv)} ms, in linea o sopra la media (${Math.round(hrvBase)}): via libera.` });
+  // HRV come media mobile di 7 giorni (sul logaritmo) contro la media di 60: la notte singola
+  // dell'Apple Watch (SDNN) oscilla troppo per decidere da sola. Fascia normale = ±0,5 dev. standard.
+  const sdv = a => { const m = avg(a); return a.length > 1 ? Math.sqrt(avg(a.map(x => (x - m) ** 2))) : null; };
+  const since = n => days.filter(d => d.date > Date.now() - n * 864e5);
+  const lnB = since(60).filter(d => d.hrv > 0).map(d => Math.log(d.hrv));
+  const ln7 = since(7).filter(d => d.hrv > 0).map(d => Math.log(d.hrv));
+  const hrvBase = lnB.length ? Math.exp(avg(lnB)) : null;
+  const hrv7 = ln7.length ? Math.exp(avg(ln7)) : null;
+  const okR = d => d.restingHR >= 30 && d.restingHR <= 90;
+  const rhrBase = avg(since(60).filter(okR).map(d => d.restingHR));
+  const r7 = since(7).filter(okR).map(d => d.restingHR);
+  const rhr7 = r7.length >= 3 ? avg(r7) : null;
+  const res = { today, hrvBase, rhrBase, hrv7, rhr7, flags: [] };
+  if (lnB.length >= 7 && ln7.length >= 3) {
+    const sB = sdv(lnB) || 0.1, z = (avg(ln7) - avg(lnB)) / sB;
+    res.hrvZ = z; res.hrvBand = [Math.exp(avg(lnB) - 0.5 * sB), Math.exp(avg(lnB) + 0.5 * sB)];
+    const pct = Math.round(Math.abs(hrv7 / hrvBase - 1) * 100);
+    if (z < -1.5) res.flags.push({ level: 'bad', key: 'hrv', text: `HRV media 7 giorni ${Math.round(hrv7)} ms, ${pct}% sotto la tua norma (${Math.round(hrvBase)}): il corpo non sta recuperando. Riduci il carico per qualche giorno.` });
+    else if (z < -0.5) res.flags.push({ level: 'ok', key: 'hrvtrend', text: `HRV media 7 giorni ${Math.round(hrv7)} ms, sotto la tua fascia normale: accumuli fatica, evita lavori molto intensi.` });
+    else res.flags.push({ level: 'good', key: 'hrvok', text: `HRV media 7 giorni ${Math.round(hrv7)} ms, ${z > 0.5 ? 'sopra' : 'dentro'} la tua fascia normale: recupero ok.` });
   }
-  if (hrv7 && hrvBase && hrv7 < hrvBase * 0.9) res.flags.push({ level: 'ok', key: 'hrvtrend', text: `HRV media degli ultimi 7 giorni in calo (${Math.round(hrv7)} vs ${Math.round(hrvBase)}): accumuli fatica, valuta una settimana di scarico.` });
-  if (today?.restingHR && rhrBase && today.restingHR > rhrBase + 5) res.flags.push({ level: 'ok', key: 'rhr', text: `FC a riposo ${today.restingHR} bpm, +${Math.round(today.restingHR - rhrBase)} rispetto al solito: possibile fatica o inizio di malanno.` });
+  if (rhr7 && rhrBase && rhr7 > rhrBase + 3) res.flags.push({ level: 'ok', key: 'rhr', text: `FC a riposo media 7 giorni ${Math.round(rhr7)} bpm, +${Math.round(rhr7 - rhrBase)} rispetto al solito: possibile fatica o inizio di malanno.` });
   if (today?.sleepSecs && today.sleepSecs < 6 * 3600) res.flags.push({ level: 'ok', key: 'sleep', text: `Hai dormito ${(today.sleepSecs / 3600).toFixed(1)} h: meglio un allenamento facile.` });
   return res;
 }
@@ -80,9 +89,9 @@ export function suggestWorkout(pmcData, activities, events, wstat, ready) {
     return { key: pick, ...WORKOUTS[pick], reasons };
   }
   if (daysToRace != null && daysToRace <= 1) { pick = 'openers'; reasons.push(`gara "${race.name}" ${daysToRace <= 0 ? 'oggi' : 'domani'}`); }
-  else if ((wstat?.hrvDev ?? 0) < -0.15 || tsb < -35) { pick = tsb < -40 ? 'rest' : 'recovery'; reasons.push(wstat?.hrvDev < -0.15 ? 'HRV molto bassa' : `forma molto negativa (${tsb.toFixed(0)})`); }
+  else if ((wstat?.hrvZ ?? 0) < -1.5 || tsb < -35) { pick = tsb < -40 ? 'rest' : 'recovery'; reasons.push(wstat?.hrvZ < -1.5 ? 'HRV (media 7 gg) molto bassa' : `forma molto negativa (${tsb.toFixed(0)})`); }
   else if (daysToRace != null && daysToRace <= 7) { pick = 'endurance'; reasons.push(`scarico: gara tra ${daysToRace} giorni`); }
-  else if (tsb < -20 || (wstat?.hrvDev ?? 0) < -0.07 || wstat?.flags.some(f => f.key === 'sleep' || f.key === 'rhr')) {
+  else if (tsb < -20 || (wstat?.hrvZ ?? 0) < -0.5 || wstat?.flags.some(f => f.key === 'sleep' || f.key === 'rhr')) {
     pick = 'endurance';
     reasons.push(tsb < -20 ? `fatica alta (forma ${tsb.toFixed(0)})` : 'recupero non ottimale (HRV, sonno o FC a riposo)');
   } else if (lastTwo.some(hard)) { pick = 'endurance'; reasons.push('lavoro intenso nelle ultime 48 ore'); }

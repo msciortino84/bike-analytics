@@ -126,7 +126,7 @@
     <table class="tbl">
       <tr><th>Pilastro</th><th>Peso</th><th>Cosa misura</th></tr>
       <tr><td>🔋 <b>Freschezza</b></td><td>30%</td><td><b>Forma</b> (TSB) e <b>ACWR</b>, cioè il rapporto fatica/fitness. Un'uscita <b>indoor</b> intensa nelle ultime 48 ore toglie qualche punto: sui rulli il cuore lavora di più, per il caldo e l'assenza di pause.</td></tr>
-      <tr><td>❤️ <b>Recupero</b></td><td>30%</td><td><b>HRV</b> di stanotte rispetto alla tua media di 60 giorni e al trend di 7 giorni, e <b>FC a riposo</b> rispetto al solito. HRV bassa o battito a riposo alto = corpo non ancora recuperato.</td></tr>
+      <tr><td>❤️ <b>Recupero</b></td><td>30%</td><td><b>HRV media degli ultimi 7 giorni</b> rispetto alla tua media di 60 giorni, e <b>FC a riposo</b> media di 7 giorni rispetto al solito. L'Apple Watch misura l'HRV come SDNN, che oscilla molto tra una notte e l'altra: per questo conta la <b>media mobile</b>, mentre la notte singola dà solo un piccolo segnale. Se la media resta nella tua <b>fascia normale</b> (± mezza deviazione standard) sei a posto.</td></tr>
       <tr><td>😴 <b>Sonno</b></td><td>20%</td><td>Ore dormite <b>stanotte</b> e media delle <b>ultime 3 notti</b>. Il riferimento ideale è intorno alle 7,5 ore.</td></tr>
       <tr><td>📊 <b>Carico</b></td><td>10%</td><td>Se il carico è <b>sostenibile</b>: crescita della fitness in 7 giorni, <b>monotonia</b> (giorni troppo simili), giorni di fila senza riposo, settimana molto sopra la media.</td></tr>
       <tr><td>🎯 <b>Qualità</b></td><td>10%</td><td>Come ti alleni: tempo in <b>"zona grigia"</b> (Z3–Z4), equilibrio <b>indoor/outdoor</b>, <b>disaccoppiamento cardiaco</b> nelle uscite di fondo, numero di sedute intense nella settimana.</td></tr>
@@ -134,7 +134,7 @@
 
     <div class="tip"><b>Dati mancanti.</b> Se una notte mancano HRV o sonno, quel pilastro <b>non conta</b> e il suo peso passa agli altri. In fondo alla scheda leggi <i>"Basato su X pilastri su 5"</i>: più pilastri, più il numero è affidabile.</div>
     <div class="tip warn"><b>Limitatori.</b> Alcuni segnali molto negativi <b>abbassano il tetto</b> del punteggio anche se il resto va bene, perché un buon carico non deve nascondere un campanello d'allarme:
-      <ul><li>HRV oltre il <b>25% sotto</b> la tua media → massimo 45</li><li>meno di <b>5 ore</b> di sonno → massimo 50</li><li>forma sotto <b>-35</b> → massimo 40</li><li>ACWR sopra <b>1,8</b> → massimo 45</li></ul></div>
+      <ul><li>HRV media di 7 giorni <b>molto sotto la tua fascia normale</b> (oltre 1,5 deviazioni standard) → massimo 45</li><li>meno di <b>5 ore</b> di sonno → massimo 50</li><li>forma sotto <b>-35</b> → massimo 40</li><li>ACWR sopra <b>1,8</b> → massimo 45</li></ul></div>
     <p>La Readiness guida anche l'<span class="kw">allenamento consigliato</span>: sotto 40 propone riposo o recupero, sotto 60 solo fondo.</p>
   </section>
 
@@ -244,7 +244,7 @@
   <section class="g" id="grafici">
     <h2>📉 Altri grafici della dashboard</h2>
     <div class="grid-mini">
-      <div class="mini"><b>❤️ Recupero</b>HRV con la tua media di 60 giorni, ore di sonno e FC a riposo.</div>
+      <div class="mini"><b>❤️ Recupero</b>HRV media di 7 giorni rispetto alla tua norma, ore di sonno e FC a riposo.</div>
       <div class="mini"><b>📊 Carico settimanale</b>TSS (barre) e ore (linea) di ogni settimana del periodo.</div>
       <div class="mini"><b>📅 Volume mensile</b>Ogni mese dell'anno <b>contro lo stesso mese dell'anno prima</b>, a barre sovrapposte. Interruttore <span class="sym">km</span> <span class="sym">ore</span> <span class="sym">D+</span>.</div>
       <div class="mini"><b>⚡ Curva di potenza</b>I tuoi migliori watt per ogni durata nel periodo.</div>
@@ -352,7 +352,7 @@
       <tr><td><b>CTL / ATL / TSB</b></td><td>Fitness (42 giorni) · Fatica (7 giorni) · Forma = Fitness − Fatica.</td></tr>
       <tr><td><b>ACWR</b></td><td>Fatica / Fitness: quanto il carico recente supera quello abituale. Ideale 0,8–1,3.</td></tr>
       <tr><td><b>Monotonia</b></td><td>Quanto sono simili i carichi dei giorni: sopra 2 manca alternanza tra giorni duri e facili.</td></tr>
-      <tr><td><b>HRV</b></td><td>Variabilità della frequenza cardiaca, misurata di notte: più alta del tuo solito = recuperato.</td></tr>
+      <tr><td><b>HRV</b></td><td>Variabilità della frequenza cardiaca, misurata di notte: più alta del tuo solito = recuperato. Nel grafico del benessere i punti sono le singole notti, la linea è la media di 7 giorni e la banda è la tua fascia normale.</td></tr>
       <tr><td><b>Disaccoppiamento</b></td><td>Quanto sale il battito a parità di potenza tra prima e seconda metà di un'uscita costante. Sotto il 5% = buona resistenza aerobica.</td></tr>
       <tr><td><b>EF</b></td><td>Efficienza = NP / FC media: più è alta, più watt produci per battito.</td></tr>
       <tr><td><b>Zona grigia</b></td><td>Z3–Z4: troppo dura per recuperare, troppo facile per migliorare molto. Meglio tanto Z2 e poche sedute intense.</td></tr>

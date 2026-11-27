@@ -69,25 +69,32 @@ export function computeReadiness({ pmc, wellness, activities, day }) {
   const todayW = last[last.length - 1] || null;
   // Valori plausibili: la FC "a riposo" sopra 90 bpm non è una misura a riposo (dati vecchi senza orologio di notte)
   const ok = (k, v) => v > 0 && (k !== 'restingHR' || (v >= 30 && v <= 90));
-  const base = (k, days) => well.filter(w => w.date < (todayW?.date ?? t + 1) && w.date >= t - days * D && ok(k, w[k])).map(w => w[k]);
+  const base = (k, days) => well.filter(w => w.date >= t - days * D && ok(k, w[k])).map(w => w[k]);
   const parts = [], bodyNotes = [];
-  const hb = base('hrv', 60);
-  if (todayW?.hrv && hb.length >= 7) {
-    const m = avg(hb), s = sd(hb) || m * 0.1;
-    const z = (todayW.hrv - m) / s;
-    let sc = clamp(70 + z * 15);
-    const h7 = avg(well.filter(w => w.date > t - 7 * D && w.hrv > 0).map(w => w.hrv));
-    if (h7 && h7 < m * 0.9) sc -= 10; // trend di 7 giorni in calo
+  // HRV: l'Apple Watch misura l'SDNN, che oscilla molto da una notte all'altra. Come negli studi
+  // (Plews et al.) si usa la MEDIA MOBILE DI 7 GIORNI del logaritmo, confrontata con la tua media
+  // di 60 giorni: dentro ±0,5 deviazioni standard sei nella tua norma. La notte singola pesa poco.
+  const hb = well.filter(w => w.date >= t - 60 * D && ok('hrv', w.hrv)).map(w => Math.log(w.hrv));
+  const h7 = well.filter(w => w.date > t - 7 * D && ok('hrv', w.hrv)).map(w => Math.log(w.hrv));
+  if (hb.length >= 7 && h7.length >= 3) {
+    const mB = avg(hb), sB = sd(hb) || 0.1, m7 = avg(h7);
+    const z = (m7 - mB) / sB;
+    let sc = clamp(70 + z * 20); // nella fascia normale (±0,5) → 60–80
+    const dev = Math.exp(m7 - mB) - 1;
+    bodyNotes.push(`HRV 7 gg ${Math.round(Math.exp(m7))} (${dev >= 0 ? '+' : ''}${Math.round(dev * 100)}%${Math.abs(z) <= 0.5 ? ', nella norma' : z < 0 ? ', sotto la norma' : ', sopra la norma'})`);
+    // Notte singola molto sotto la propria media di 7 giorni: solo un piccolo segnale
+    if (todayW && ok('hrv', todayW.hrv) && Math.log(todayW.hrv) < m7 - sB) { sc -= 5; bodyNotes.push(`stanotte HRV bassa (${Math.round(todayW.hrv)})`); }
     parts.push(clamp(sc));
-    const dev = (todayW.hrv - m) / m;
-    bodyNotes.push(`HRV ${Math.round(todayW.hrv)} (${dev >= 0 ? '+' : ''}${Math.round(dev * 100)}%)`);
-    if (dev < -0.25) caps.push({ cap: 45, why: `HRV ${Math.round(-dev * 100)}% sotto la tua media` });
+    // Taglio solo se il calo è confermato dalla media dei 7 giorni
+    if (z < -1.5) caps.push({ cap: 45, why: `HRV media 7 gg ${Math.round(-dev * 100)}% sotto la tua norma` });
   }
+  // FC a riposo: anche qui media di 7 giorni contro la media di 60
   const rb = base('restingHR', 60);
-  if (ok('restingHR', todayW?.restingHR) && rb.length >= 7) {
-    const d = todayW.restingHR - avg(rb);
-    parts.push(clamp(80 - d * 6));
-    bodyNotes.push(`FC riposo ${todayW.restingHR} (${d >= 0 ? '+' : ''}${Math.round(d)})`);
+  const r7 = well.filter(w => w.date > t - 7 * D && ok('restingHR', w.restingHR)).map(w => w.restingHR);
+  if (rb.length >= 7 && r7.length >= 3) {
+    const d = avg(r7) - avg(rb);
+    parts.push(clamp(80 - d * 8));
+    bodyNotes.push(`FC riposo 7 gg ${Math.round(avg(r7))} (${d >= 0 ? '+' : ''}${d.toFixed(1)})`);
   }
   res.body = parts.length ? avg(parts) : null;
   notes.body = bodyNotes.join(' · ') || 'Nessun dato di HRV o FC a riposo recente';
