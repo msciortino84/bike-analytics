@@ -397,7 +397,7 @@ function drawReadiness(r, hist) {
         <div class="ready-sentence">${esc(r.sentence)}</div>
         <div class="ready-pillars">${r.pillars.map(pl => `
           <div class="rp${pl.score == null ? ' na' : ''}" title="${esc(pl.note)}">
-            <span class="rp-i">${pl.icon}</span><span class="rp-n">${pl.name}<small>${esc(pl.note)}</small></span>
+            <span class="rp-i">${pl.icon}</span><span class="rp-n"><span><i class="rp-dot" style="background:${pl.color}"></i>${pl.name}</span><small>${esc(pl.note)}</small></span>
             <span class="rp-bar"><i style="width:${pl.score ?? 0}%;background:${pcol(pl.score)}"></i></span><b style="color:${pcol(pl.score)}">${pl.score ?? '–'}</b>
           </div>`).join('')}</div>
         <div class="ready-foot">Basato su ${r.coverage} pilastri su 5${r.coverage < 5 ? ' · i mancanti non contano' : ''}</div>
@@ -407,11 +407,14 @@ function drawReadiness(r, hist) {
   animateReadiness(card, r.score, C);
   chart('readySpark', {
     type: 'line',
-    data: { labels: hist.map(h => new Date(h.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [{
-      label: 'Readiness', data: hist.map(h => h.score), borderColor: r.level.color, backgroundColor: r.level.color + '22', fill: true,
-      pointRadius: 0, borderWidth: 2, tension: .35 }] },
-    options: { plugins: { legend: { display: false }, tooltip: { displayColors: false } }, interaction: { mode: 'index', intersect: false },
-      scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, grid: { color: css('--line') } } } },
+    data: { labels: hist.map(h => new Date(h.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [
+      // Contributo dei pilastri impilato, tenue; la linea è la Readiness finale (sotto la pila se un limite l'ha tagliata)
+      ...PILLARS.map((pl, i) => ({ label: pl.name, data: hist.map(h => +(h.contrib?.[pl.key] ?? 0).toFixed(1)), stack: 'p',
+        borderColor: pl.color + '99', borderWidth: 0.6, backgroundColor: pl.color + '26', fill: i ? '-1' : 'origin', pointRadius: 0, tension: .35 })),
+      { label: 'Readiness', data: hist.map(h => h.score), stack: 'r', borderColor: r.level.color, fill: false,
+        pointRadius: 0, borderWidth: 2, tension: .35 }] },
+    options: { plugins: { legend: { display: false }, tooltip: { displayColors: false, filter: i => i.dataset.label === 'Readiness' } }, interaction: { mode: 'index', intersect: false },
+      scales: { x: { display: false }, y: { stacked: true, min: 0, max: 100, ticks: { stepSize: 20, font: { size: 10 } }, grid: { color: css('--line') } } } },
   });
 }
 

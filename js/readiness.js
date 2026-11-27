@@ -167,7 +167,9 @@ export function computeReadiness({ pmc, wellness, activities, day }) {
   if (cap < raw) sentence += ` Limitato da ${caps.find(c => c.cap === cap).why}.`;
   else if (weakest && weakest.score < 60) sentence += ` Punto debole: ${weakest.name.toLowerCase()} (${weakest.note}).`;
 
-  return { date: t, score, raw: Math.round(raw), level: lvl, pillars, caps, coverage: avail.length, sentence };
+  // Contributo di ogni pilastro al punteggio (pesi ridistribuiti): la somma fa il punteggio prima dei limiti
+  const contrib = Object.fromEntries(PILLARS.map(p => [p.key, res[p.key] == null ? 0 : res[p.key] * p.weight / wsum]));
+  return { date: t, score, raw: Math.round(raw), level: lvl, pillars, caps, coverage: avail.length, sentence, contrib };
 }
 
 // Andamento degli ultimi `days` giorni
@@ -175,7 +177,7 @@ export function readinessHistory(args, days = 30) {
   const out = [];
   for (let i = Math.max(7, args.pmc.length - days); i < args.pmc.length; i++) {
     const r = computeReadiness({ ...args, day: args.pmc[i].date });
-    if (r) out.push({ date: r.date, score: r.score });
+    if (r) out.push({ date: r.date, score: r.score, contrib: r.contrib });
   }
   return out;
 }
