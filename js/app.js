@@ -333,6 +333,27 @@ function setupCollapsibles() {
 }
 
 // ---------- Prontezza: anello in cima alla dashboard ----------
+// Riempimento dell'anello all'apertura: numero e arco salgono veloci e rallentano fino al valore.
+// Se la scheda viene ridisegnata durante l'animazione (es. dopo la sync) l'animazione prosegue.
+let readyAnim = null;
+function animateReadiness(card, target, C) {
+  const DUR = 1800;
+  const num = card.querySelector('.ready-num'), prog = card.querySelector('.ready-prog');
+  const bars = [...card.querySelectorAll('.rp-bar i')];
+  if (reduceMotion || (readyAnim && readyAnim.done)) return;
+  readyAnim ??= { start: performance.now(), done: false };
+  const widths = bars.map(b => b.style.width);
+  const step = () => {
+    if (!num.isConnected) return; // sostituita da un nuovo disegno, che riparte da qui
+    const p = Math.min(1, (performance.now() - readyAnim.start) / DUR);
+    const e = 1 - Math.pow(1 - p, 4); // veloce all'inizio, poi rallenta
+    num.textContent = Math.round(target * e);
+    prog.setAttribute('stroke-dasharray', `${target / 100 * C * e} ${C}`);
+    bars.forEach((b, i) => { b.style.width = `${parseFloat(widths[i]) * e}%`; });
+    if (p < 1) requestAnimationFrame(step); else readyAnim.done = true;
+  };
+  step();
+}
 function drawReadiness(r, hist) {
   const card = $('readyCard');
   card.hidden = !r;
@@ -383,6 +404,7 @@ function drawReadiness(r, hist) {
         <div class="chart spark"><canvas id="readySpark"></canvas></div>
       </div>
     </div>`;
+  animateReadiness(card, r.score, C);
   chart('readySpark', {
     type: 'line',
     data: { labels: hist.map(h => new Date(h.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })), datasets: [{
