@@ -768,6 +768,8 @@ function setRange(r) {
   range = r;
   try { localStorage.setItem('range', JSON.stringify(r)); } catch {}
   syncRangeUi();
+  // Nuovo periodo: i grafici della dashboard si ridisegnano con l'animazione d'entrata
+  document.querySelectorAll('#tab-dash canvas').forEach(c => { if (c.id !== 'readySpark') seenCharts.delete(c.id); });
   render();
 }
 function syncRangeUi() {
