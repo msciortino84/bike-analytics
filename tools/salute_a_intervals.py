@@ -91,7 +91,7 @@ def read_export(path, since):
                         rhr[d].append(float(el.get("value")))
                 elif el.get("value") in ASLEEP:
                     end = parse_dt(el.get("endDate"))
-                    d = end.date()  # la notte conta per il giorno in cui ti svegli
+                    d = (end + NIGHT_SHIFT).date()  # la notte conta per il giorno in cui ti svegli (anche i pezzi prima di mezzanotte)
                     if d >= since and end > start:
                         sleep[d].append((start, end))
             el.clear()
