@@ -15,6 +15,7 @@ Non servono librerie da installare: solo Python 3.
 import argparse
 import base64
 import getpass
+import os
 import json
 import sys
 import time
@@ -170,7 +171,8 @@ def main():
     if input(f"\nInviare questi {len(days)} giorni a intervals.icu? (s/n) ").strip().lower() not in ("s", "si", "sì", "y"):
         print("Annullato.")
         return
-    key = getpass.getpass("Chiave API di intervals.icu (non viene mostrata né salvata): ").strip()
+    # Se hai salvato la chiave nella variabile d'ambiente INTERVALS_API_KEY non viene chiesta
+    key = os.environ.get("INTERVALS_API_KEY", "").strip() or         getpass.getpass("Chiave API di intervals.icu (non viene mostrata né salvata): ").strip()
     auth = base64.b64encode(f"API_KEY:{key}".encode()).decode()
 
     ok = err = 0
