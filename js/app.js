@@ -49,13 +49,74 @@ const fmtDur = s => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) 
 const fmtDate = t => new Date(t).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const charts = {};
+// Animazione d'entrata: solo la prima volta che un grafico compare (non a ogni filtro o sync),
+// e solo quando entra davvero nello schermo. Linee: si disegnano da sinistra a destra;
+// barre: salgono dall'asse; radar: si compongono ruotando.
+const seenCharts = new Set(), pendingCharts = new Map();
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease = p => 1 - Math.pow(1 - p, 3);
+function revealPlugin(ms = 1200) {
+  let start = null, p = 0;
+  return {
+    id: 'reveal',
+    beforeDatasetsDraw(c) {
+      start ??= performance.now();
+      p = Math.min(1, (performance.now() - start) / ms);
+      const a = c.chartArea;
+      c.ctx.save(); c.ctx.beginPath();
+      c.ctx.rect(0, 0, a.left + (a.right - a.left) * ease(p) + 2, c.height); c.ctx.clip();
+    },
+    afterDatasetsDraw(c) {
+      c.ctx.restore();
+      if (p < 1) requestAnimationFrame(() => c.ctx && c.draw());
+    },
+  };
+}
+function spinPlugin(ms = 1100) {
+  let start = null, p = 0;
+  return {
+    id: 'spin',
+    beforeDraw(c) {
+      start ??= performance.now();
+      p = Math.min(1, (performance.now() - start) / ms);
+      const e = ease(p), s = 0.6 + 0.4 * e;
+      const x = (c.chartArea.left + c.chartArea.right) / 2, y = (c.chartArea.top + c.chartArea.bottom) / 2;
+      c.ctx.save(); c.ctx.globalAlpha = 0.3 + 0.7 * e;
+      c.ctx.translate(x, y); c.ctx.rotate(-(1 - e) * Math.PI * 0.75); c.ctx.scale(s, s); c.ctx.translate(-x, -y);
+    },
+    afterDraw(c) {
+      c.ctx.restore();
+      if (p < 1) requestAnimationFrame(() => c.ctx && c.draw());
+    },
+  };
+}
 function chart(id, cfg) {
-  charts[id]?.destroy();
+  charts[id]?.destroy(); charts[id] = null;
+  pendingCharts.get(id)?.disconnect();
+  const first = !reduceMotion && (!seenCharts.has(id) || pendingCharts.has(id));
+  pendingCharts.delete(id); seenCharts.add(id);
   // Senza asse esplicito Chart.js può mettere le serie sull'asse destro (y2): forziamo 'y'.
   cfg.data.datasets.forEach(d => { d.yAxisID ??= 'y'; });
   Chart.defaults.color = css('--muted');
   Chart.defaults.borderColor = css('--line');
-  charts[id] = new Chart($(id), { ...cfg, options: { responsive: true, maintainAspectRatio: false, animation: false, ...cfg.options } });
+  const make = animate => {
+    const plugins = [...(cfg.plugins || [])];
+    let animation = false;
+    if (animate) {
+      if (cfg.type === 'line') plugins.push(revealPlugin());
+      else if (cfg.type === 'radar') { plugins.push(spinPlugin()); animation = { duration: 1100, easing: 'easeOutCubic' }; }
+      else animation = { duration: 900, easing: 'easeOutQuart' }; // barre: crescono dall'asse
+    }
+    charts[id] = new Chart($(id), { ...cfg, plugins, options: { responsive: true, maintainAspectRatio: false, ...cfg.options, animation } });
+  };
+  if (!first) return make(false);
+  // Aspetta che il grafico sia visibile (anche dopo uno scroll o aprendo una scheda chiusa)
+  const io = new IntersectionObserver(es => {
+    if (!es.some(e => e.isIntersecting)) return;
+    io.disconnect(); pendingCharts.delete(id); make(true);
+  }, { threshold: 0.35 });
+  pendingCharts.set(id, io);
+  io.observe($(id));
 }
 
 // ---------- Navigazione ----------

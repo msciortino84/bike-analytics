@@ -1,5 +1,5 @@
 // Service worker: rende l'app disponibile offline. Cambia VERSION a ogni rilascio.
-const VERSION = 'v54';
+const VERSION = 'v55';
 const FILES = ['./', 'index.html', 'guida.html', 'styles.css', 'manifest.json', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'js/app.js', 'js/fit.js', 'js/metrics.js', 'js/intervals.js', 'js/advice.js', 'js/calendar.js', 'js/fuel.js', 'js/coach.js', 'js/readiness.js',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'];
