@@ -407,7 +407,7 @@ main .card { position: relative; }
 .ready-ring svg { width: 190px; height: 190px; display: block; }
 .ready-num { font: 800 46px system-ui, sans-serif; fill: var(--text); }
 .ready-lvl { font: 800 11px system-ui, sans-serif; letter-spacing: .12em; }
-.ready-prog { transition: stroke-dasharray .8s ease; }
+.ready-prog { } /* niente transizione CSS: la anima lo script insieme al numero */
 .ready-sentence { font-weight: 600; margin-bottom: 10px; }
 .ready-pillars { display: flex; flex-direction: column; gap: 6px; }
 .rp { display: grid; grid-template-columns: 22px 1fr 90px 28px; gap: 8px; align-items: center; font-size: 13px; }
