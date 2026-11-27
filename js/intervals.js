@@ -98,6 +98,11 @@ export async function fetchStreams(settings, activityId) {
 }
 
 // Crea un allenamento pianificato nel calendario di intervals.
+// Scrive HRV / FC a riposo / sonno di un giorno nel benessere di intervals (aggiorna solo i campi inviati)
+export async function putWellness(settings, date, rec) {
+  return call(settings, `/wellness/${date}`, { method: 'PUT', body: rec });
+}
+
 export async function createWorkout(settings, { date, name, description }) {
   const d = new Date(date);
   const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00`;

@@ -1,6 +1,6 @@
 import { parseFit } from './fit.js';
 import { analyzeRecords, pmc, CURVE_DURATIONS, POWER_ZONES, startOfDay, bestEfforts, normalizedPower, powerZones } from './metrics.js';
-import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout } from './intervals.js';
+import { fetchAthlete, fetchActivities, fetchEvents, fetchPowerCurve, fetchWellness, fetchStreams, createWorkout, putWellness } from './intervals.js';
 import { wellnessStatus, suggestWorkout } from './advice.js';
 import { structuredAdvice } from './coach.js';
 import { computeReadiness, readinessHistory, PILLARS } from './readiness.js';
@@ -91,6 +91,47 @@ $('exportBtn').onclick = async () => {
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `bike-storico-${new Date().toISOString().slice(0, 10)}.json` });
   a.click();
 };
+// ---------- Import CSV dal comando rapido Salute ----------
+// Righe: data;hrv;fc_riposo;sonno_ore  (accetta ; o , come separatore e la virgola decimale;
+// la data può essere 2026-11-27 o 27/11/2026). Una riga per giorno: l'ultima vince.
+function parseHealthCsv(text) {
+  const days = new Map();
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const sep = line.includes(';') ? ';' : line.includes('\t') ? '\t' : ',';
+    const [d, ...vals] = line.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
+    let m = d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/), date = null;
+    if (m) date = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    else if ((m = d.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/))) date = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    if (!date) continue; // intestazione o riga non valida
+    const num = x => { const n = parseFloat((x || '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
+    const [hrv, rhr, sleepH] = vals.map(num);
+    const rec = {};
+    if (hrv) rec.hrv = Math.round(hrv * 10) / 10;
+    if (rhr && rhr >= 30 && rhr <= 90) rec.restingHR = Math.round(rhr);
+    if (sleepH && sleepH >= 2 && sleepH <= 14) rec.sleepSecs = Math.round(sleepH * 3600);
+    if (Object.keys(rec).length) days.set(date, { ...(days.get(date) || {}), ...rec });
+  }
+  return [...days].sort(([a], [b]) => a.localeCompare(b));
+}
+$('healthCsv').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  if (!settings.apiKey) return status('Prima accedi con ID atleta e chiave di intervals.');
+  const rows = parseHealthCsv(await f.text());
+  if (!rows.length) return status('Nel file non ho trovato righe valide (data;hrv;fc_riposo;sonno_ore).');
+  const fmt = ([d, r]) => `${d.split('-').reverse().join('/')}: ${[r.hrv && `HRV ${r.hrv}`, r.restingHR && `FC ${r.restingHR}`, r.sleepSecs && `sonno ${(r.sleepSecs / 3600).toFixed(1)} h`].filter(Boolean).join(', ')}`;
+  const preview = rows.slice(-8).map(fmt).join('\n') + (rows.length > 8 ? `\n… e altri ${rows.length - 8} giorni` : '');
+  if (!confirm(`Inviare ${rows.length} giorni a intervals?\n\n${preview}`)) return;
+  let n = 0;
+  try {
+    for (const [d, r] of rows) { await putWellness(settings, d, r); status(`Invio dati Salute… ${++n}/${rows.length}`); }
+  } catch (err) { return status(`Invio interrotto dopo ${n} giorni: ${err.message}`); }
+  status(`${n} giorni inviati a intervals.`);
+  sync();
+};
+
 $('clearBtn').onclick = async () => {
   if (!confirm('Cancellare tutte le attività salvate su questo dispositivo?')) return;
   await req(tx('activities', 'readwrite').clear()); render();
